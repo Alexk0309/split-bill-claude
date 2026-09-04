@@ -1,0 +1,188 @@
+@import 'tailwindcss';
+
+/*
+ * Built for a phone held one-handed at a cashier: warm, high contrast, and
+ * legible in daylight. Every interactive target is at least 44px tall, and
+ * nothing depends on hover.
+ */
+
+@theme {
+  --color-sand-50: #fdfbf7;
+  --color-sand-100: #f7f2e9;
+  --color-sand-200: #ece4d6;
+  --color-sand-300: #d9cdb8;
+
+  --color-ink-900: #1c1611;
+  --color-ink-700: #3d3229;
+  --color-ink-500: #6b5d4f;
+  --color-ink-400: #8a7c6d;
+
+  --color-ember-50: #fff5ed;
+  --color-ember-100: #ffe8d4;
+  --color-ember-500: #ef7211;
+  --color-ember-600: #d95d05;
+  --color-ember-700: #b44608;
+
+  --color-leaf-100: #dcf5e4;
+  --color-leaf-600: #17803d;
+  --color-leaf-700: #12652f;
+
+  --color-night-900: #14110e;
+  --color-night-800: #1f1a16;
+  --color-night-700: #2c2520;
+  --color-night-600: #3d342c;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+:root {
+  --bg: var(--color-sand-50);
+  --surface: #ffffff;
+  --surface-sunk: var(--color-sand-100);
+  --border: var(--color-sand-200);
+  --text: var(--color-ink-900);
+  --text-muted: var(--color-ink-500);
+  --accent: var(--color-ember-600);
+  --accent-strong: var(--color-ember-700);
+  --accent-wash: var(--color-ember-50);
+  --accent-wash-strong: var(--color-ember-100);
+  --good: var(--color-leaf-600);
+  --good-wash: var(--color-leaf-100);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--color-night-900);
+    --surface: var(--color-night-800);
+    --surface-sunk: var(--color-night-700);
+    --border: var(--color-night-600);
+    --text: var(--color-sand-100);
+    --text-muted: #a29384;
+    --accent: var(--color-ember-500);
+    --accent-strong: var(--color-ember-500);
+    --accent-wash: #2b1d12;
+    --accent-wash-strong: #3a2415;
+    --good: #4ade80;
+    --good-wash: #14301f;
+  }
+}
+
+html {
+  /* Keeps the pinned total bar clear of the iOS home indicator. */
+  scroll-padding-bottom: 7rem;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Stops a double-tap on an item row from zooming the page. */
+  touch-action: manipulation;
+}
+
+/* Native inputs on Android default to a tiny font that triggers zoom on focus. */
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  font-size: max(1rem, 16px);
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+  }
+
+  .field {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.625rem 0.875rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    color: var(--text);
+  }
+
+  .field::placeholder {
+    color: var(--text-muted);
+  }
+
+  .field:focus-visible,
+  .btn:focus-visible,
+  .tap:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    padding: 0 1.125rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.06s ease;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-secondary {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .tap {
+    /* The minimum comfortable target for a thumb on a cracked screen. */
+    min-height: 44px;
+    cursor: pointer;
+  }
+
+  .label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
