@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Avatar, AvatarRow, Banner, Money } from '@/components/ui';
 import { readIdentity, writeIdentity } from '@/lib/bill/guest-identity';
@@ -8,7 +8,9 @@ import { toBillInput } from '@/lib/bill/to-engine-input';
 import { formatRM } from '@/lib/money';
 import { computeSplit, type PersonBreakdown, type SplitResult } from '@/lib/split';
 import { createGuestClient } from '@/lib/supabase/guest';
-import type { BillBundle, ClaimRow, GuestIdentity, ParticipantRow } from '@/lib/supabase/types';
+import type { BillBundle, GuestIdentity, ParticipantRow } from '@/lib/supabase/types';
+
+import { useClaimSync, type SyncStatus } from './use-claim-sync';
 
 /* -------------------------------------------------------------------------- */
 /* Name picker                                                                 */
@@ -137,6 +139,41 @@ function NamePicker({
 }
 
 /* -------------------------------------------------------------------------- */
+/* Connection state                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Deliberately quiet. When everything works there is nothing to say, and when
+ * it does not the message is that the taps are safe, not that something broke.
+ */
+function ConnectionNote({ status, queued }: { status: SyncStatus; queued: number }) {
+  if (status === 'live') return null;
+
+  const label =
+    status === 'offline'
+      ? queued > 0
+        ? `Offline — ${queued} ${queued === 1 ? 'tap' : 'taps'} saved, will sync`
+        : 'Offline — you can keep tapping'
+      : 'Reconnecting…';
+
+  return (
+    <p
+      className="mt-3 flex items-center gap-2 text-[13px]"
+      style={{ color: 'var(--text-muted)' }}
+      role="status"
+      aria-live="polite"
+    >
+      <span
+        aria-hidden="true"
+        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ background: status === 'offline' ? 'var(--accent)' : 'var(--text-muted)' }}
+      />
+      {label}
+    </p>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Breakdown sheet                                                             */
 /* -------------------------------------------------------------------------- */
 
@@ -149,7 +186,7 @@ function BreakdownSheet({
   split: SplitResult;
   onClose: () => void;
 }) {
-  const rows: { label: string; sen: number; muted?: boolean }[] = [
+  const rows: { label: string; sen: number }[] = [
     { label: 'What you had', sen: person.baseShareSen },
     { label: 'Service charge', sen: person.serviceChargeShareSen },
     { label: 'Service tax', sen: person.serviceTaxShareSen },
@@ -260,14 +297,11 @@ export function ClaimPage({
   initialBundle: BillBundle;
   shareToken: string;
 }) {
-  const [bundle, setBundle] = useState(initialBundle);
   const [identity, setIdentity] = useState<GuestIdentity | null>(null);
   const [ready, setReady] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingItems, setPendingItems] = useState<ReadonlySet<string>>(new Set());
 
-  const billId = bundle.bill.id;
+  const billId = initialBundle.bill.id;
 
   // localStorage is not available during server rendering, so identity resolves
   // on the client and the page holds still until it does.
@@ -276,10 +310,11 @@ export function ClaimPage({
     setReady(true);
   }, [billId]);
 
-  const supabase = useMemo(
-    () => createGuestClient(shareToken, identity?.claimToken),
-    [shareToken, identity?.claimToken],
-  );
+  const { bundle, status, pendingItems, toggle, error, addParticipant } = useClaimSync({
+    initialBundle,
+    shareToken,
+    identity,
+  });
 
   const split = useMemo(() => {
     try {
@@ -308,61 +343,6 @@ export function ClaimPage({
     return map;
   }, [bundle.claims, participantsById]);
 
-  const toggle = useCallback(
-    async (itemId: string) => {
-      if (!identity) return;
-      const mine = bundle.claims.some(
-        (c) => c.item_id === itemId && c.participant_id === identity.participantId,
-      );
-
-      // Optimistic: the tap has to feel instant with seven people watching.
-      const snapshot = bundle.claims;
-      const next: ClaimRow[] = mine
-        ? snapshot.filter(
-            (c) => !(c.item_id === itemId && c.participant_id === identity.participantId),
-          )
-        : [
-            ...snapshot,
-            {
-              item_id: itemId,
-              participant_id: identity.participantId,
-              bill_id: billId,
-              created_at: new Date().toISOString(),
-            },
-          ];
-
-      setBundle((current) => ({ ...current, claims: next }));
-      setPendingItems((current) => new Set(current).add(itemId));
-      setError(null);
-
-      const result = mine
-        ? await supabase
-            .from('claims')
-            .delete()
-            .eq('item_id', itemId)
-            .eq('participant_id', identity.participantId)
-        : await supabase
-            .from('claims')
-            // Idempotent, so two taps in a row cannot collide on the primary key.
-            .upsert(
-              { item_id: itemId, participant_id: identity.participantId, bill_id: billId },
-              { onConflict: 'item_id,participant_id', ignoreDuplicates: true },
-            );
-
-      setPendingItems((current) => {
-        const updated = new Set(current);
-        updated.delete(itemId);
-        return updated;
-      });
-
-      if (result.error) {
-        setBundle((current) => ({ ...current, claims: snapshot }));
-        setError('That did not save. Check your connection and tap again.');
-      }
-    },
-    [bundle.claims, billId, identity, supabase],
-  );
-
   if (!ready) {
     return <main className="mx-auto max-w-md px-5 py-10" aria-busy="true" />;
   }
@@ -374,11 +354,7 @@ export function ClaimPage({
         shareToken={shareToken}
         onIdentity={(next, participant) => {
           writeIdentity(billId, next);
-          setBundle((current) =>
-            current.participants.some((p) => p.id === participant.id)
-              ? current
-              : { ...current, participants: [...current.participants, participant] },
-          );
+          addParticipant(participant);
           setIdentity(next);
         }}
       />
@@ -399,6 +375,7 @@ export function ClaimPage({
             {bundle.bill.venue && bundle.bill.title ? `${bundle.bill.venue} · ` : ''}
             You are <strong style={{ color: 'var(--text)' }}>{myName}</strong>
           </p>
+          <ConnectionNote status={status} queued={pendingItems.size} />
         </header>
 
         {unclaimedCount > 0 ? (
@@ -424,13 +401,18 @@ export function ClaimPage({
             const claimants = claimantsByItem.get(item.id) ?? [];
             const mine = claimants.some((p) => p.id === identity.participantId);
             const unclaimed = claimants.length === 0;
-            const perHead = claimants.length > 1 ? Math.round(item.price_sen / claimants.length) : null;
+            const perHead =
+              claimants.length > 1 ? Math.round(item.price_sen / claimants.length) : null;
+            // Only dim while a write is genuinely in flight. Offline, the taps
+            // are queued and the note in the header explains it; dimming the
+            // whole list would read as broken.
+            const inFlight = status === 'live' && pendingItems.has(item.id);
 
             return (
               <li key={item.id}>
                 <button
                   type="button"
-                  onClick={() => void toggle(item.id)}
+                  onClick={() => toggle(item.id)}
                   aria-pressed={mine}
                   className="tap flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left"
                   style={{
@@ -440,7 +422,7 @@ export function ClaimPage({
                     // distinct from the solid, filled state of your own claims
                     // without relying on colour alone.
                     borderStyle: unclaimed ? 'dashed' : 'solid',
-                    opacity: pendingItems.has(item.id) ? 0.6 : 1,
+                    opacity: inFlight ? 0.6 : 1,
                   }}
                 >
                   <span
@@ -457,7 +439,10 @@ export function ClaimPage({
 
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium">{item.name}</span>
-                    <span className="mt-0.5 block text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                    <span
+                      className="mt-0.5 block text-[13px]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       {perHead !== null ? (
                         <>
                           {claimants.length} people · <Money sen={perHead} /> each
@@ -465,12 +450,16 @@ export function ClaimPage({
                       ) : unclaimed ? (
                         <span style={{ color: 'var(--accent-strong)' }}>Nobody yet</span>
                       ) : (
-                        <AvatarRow people={claimants.map((p) => ({ id: p.id, name: p.display_name }))} />
+                        <AvatarRow
+                          people={claimants.map((p) => ({ id: p.id, name: p.display_name }))}
+                        />
                       )}
                     </span>
                     {perHead !== null ? (
                       <span className="mt-1 block">
-                        <AvatarRow people={claimants.map((p) => ({ id: p.id, name: p.display_name }))} />
+                        <AvatarRow
+                          people={claimants.map((p) => ({ id: p.id, name: p.display_name }))}
+                        />
                       </span>
                     ) : null}
                   </span>

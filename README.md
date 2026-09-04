@@ -13,7 +13,7 @@ bank-to-bank directly between people via DuitNow.
 | --- | --- | --- |
 | 0 | Calculation engine | done |
 | 1 | Bill creation and the guest claim page | done |
-| 2 | Live claiming | not started |
+| 2 | Live claiming | done |
 | 3 | Receipt OCR | not started |
 | 4 | Settlement | not started |
 | 5 | Reminders | not started |
@@ -179,6 +179,42 @@ and claim as that person. That is inherent to "guests never sign up" — there i
 no identity to check against. The blast radius is one bill, the payer watches
 every claim live, and the payer stays the source of truth for settlement.
 
+## Live claiming
+
+When anyone claims or unclaims, every open page follows within a second.
+
+**Broadcast, not `postgres_changes`.** A guest's read access comes from an
+`x-share-token` request header, which PostgREST exposes to row level security as
+`request.headers`. Realtime does not set that setting, so `bill_is_shared()` is
+false inside a Realtime connection and `postgres_changes` would deliver a guest
+nothing at all. Changes are announced over a broadcast channel instead, on a
+topic derived from the share token — knowing the topic and knowing the link are
+the same thing.
+
+**Events are untrusted.** The payload carries no row data, only which table
+moved. Clients treat an event as "something changed, go and look" and refetch
+through PostgREST, where row level security still applies. A forged broadcast
+can cost a client one wasted request; it can never put data on a screen or read
+any. Announcing is also best effort: the trigger swallows its own errors, so a
+bill can never fail to save because the realtime layer is down.
+
+**Offline.** Taps go into a queue keyed by `(bill, participant)` and persisted to
+`localStorage`, so they survive a reload on a bad connection. What the screen
+shows is the projection of that queue over the last known server state. Because
+a claim row is keyed by `(item, person)`, a queued tap only ever overrides your
+own row: two people claiming the same item at the same moment both succeed and
+it becomes shared. On reconnect the queue flushes in sequence order and the page
+reconciles against the server. Writes are idempotent upserts, so a retry after a
+timeout cannot collide with the write that actually landed.
+
+A refusal is told apart from a dropped connection by whether the error carries a
+Postgres code: connection failures are retried, refusals are dropped and
+surfaced rather than left stuck on screen forever.
+
+The connection state is deliberately quiet — nothing at all when it works, and
+when it does not, a line saying the taps are safe rather than that something
+broke.
+
 ## Notes on the build
 
 - `@supabase/ssr` is used alongside `@supabase/supabase-js`. It is Supabase's own
@@ -190,3 +226,6 @@ every claim live, and the payer stays the source of truth for settlement.
   and it belongs per bill rather than per app.
 - Guest claims are written with `upsert ... ignoreDuplicates`, so a double tap
   cannot collide on the composite primary key.
+- Tap direction is decided inside the state updater, against the queue React
+  holds at that instant. Deciding from a snapshot made every tap in a fast burst
+  say "claim it", so a quick double tap left the item on.

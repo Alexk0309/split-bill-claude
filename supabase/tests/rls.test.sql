@@ -8,7 +8,7 @@
 -- column they were never granted?
 
 begin;
-select plan(24);
+select plan(26);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: two unrelated bills owned by two different payers.
@@ -219,6 +219,30 @@ select is(
   (select count(*)::int from public.bill_items where name = 'Ribeye'),
   0,
   'payer cannot read another payer''s items'
+);
+
+-- ---------------------------------------------------------------------------
+-- Live claiming: the broadcast trigger is wired, and cannot break a write
+-- ---------------------------------------------------------------------------
+-- The guest insert above already ran with this trigger installed, which is the
+-- assertion that matters: announcing a change must never be able to stop one.
+
+reset role;
+
+select is(
+  (select count(*)::int from pg_trigger
+    where tgrelid = 'public.claims'::regclass
+      and tgname = 'claims_broadcast'),
+  1,
+  'claims announce changes to the bill channel'
+);
+
+select lives_ok(
+  $$insert into public.claims (item_id, participant_id, bill_id)
+    values ('b1111111-0000-0000-0000-000000000002',
+            'b2222222-0000-0000-0000-000000000003',
+            'bbbbbbbb-0000-0000-0000-000000000002')$$,
+  'a claim still saves even if the realtime layer is unavailable'
 );
 
 select * from finish();

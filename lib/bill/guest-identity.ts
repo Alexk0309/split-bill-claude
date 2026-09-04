@@ -11,62 +11,29 @@
 
 import type { GuestIdentity } from '@/lib/supabase/types';
 
+import { readJson, removeKey, writeJson } from './storage';
+
 const KEY_PREFIX = 'splitbill:v1:';
 
 const keyFor = (billId: string): string => `${KEY_PREFIX}${billId}`;
 
-/**
- * Storage access is wrapped because it throws outright in Safari private mode
- * and when a browser is set to block site data. A guest who cannot store
- * anything should still be able to claim; they just get asked their name again.
- */
-function safeStorage(explicit?: Storage): Storage | null {
-  if (explicit) return explicit;
-  try {
-    if (typeof window === 'undefined') return null;
-    return window.localStorage;
-  } catch {
-    return null;
-  }
+function isIdentity(value: unknown): value is GuestIdentity {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as GuestIdentity).participantId === 'string' &&
+    typeof (value as GuestIdentity).claimToken === 'string'
+  );
 }
 
 export function readIdentity(billId: string, explicit?: Storage): GuestIdentity | null {
-  const storage = safeStorage(explicit);
-  if (!storage) return null;
-  try {
-    const raw = storage.getItem(keyFor(billId));
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      typeof (parsed as GuestIdentity).participantId === 'string' &&
-      typeof (parsed as GuestIdentity).claimToken === 'string'
-    ) {
-      return parsed as GuestIdentity;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  return readJson(keyFor(billId), isIdentity, explicit);
 }
 
 export function writeIdentity(billId: string, identity: GuestIdentity, explicit?: Storage): void {
-  const storage = safeStorage(explicit);
-  if (!storage) return;
-  try {
-    storage.setItem(keyFor(billId), JSON.stringify(identity));
-  } catch {
-    // Out of quota or blocked. Claiming still works for this session.
-  }
+  writeJson(keyFor(billId), identity, explicit);
 }
 
 export function clearIdentity(billId: string, explicit?: Storage): void {
-  const storage = safeStorage(explicit);
-  if (!storage) return;
-  try {
-    storage.removeItem(keyFor(billId));
-  } catch {
-    // Nothing to do.
-  }
+  removeKey(keyFor(billId), explicit);
 }

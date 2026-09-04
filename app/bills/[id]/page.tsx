@@ -11,6 +11,7 @@ import type { ParticipantRow } from '@/lib/supabase/types';
 
 import { deleteBill, openBill } from '../actions';
 import { BillSettingsForm, ItemsEditor, PeopleEditor } from './editor-forms';
+import { LiveRefresh } from './live-refresh';
 import { SharePanel } from './share-panel';
 
 export default async function BillEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +54,8 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
 
   return (
     <main className="mx-auto max-w-md px-5 pt-4 pb-16">
+      <LiveRefresh shareToken={bill.share_token} />
+
       <Link
         href="/bills"
         className="tap inline-flex items-center text-[14px]"
