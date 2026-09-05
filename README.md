@@ -16,7 +16,7 @@ bank-to-bank directly between people via DuitNow.
 | 2 | Live claiming | done |
 | 3 | Receipt OCR | done |
 | 4 | Settlement | done |
-| 5 | Reminders | not started |
+| 5 | Reminders | done |
 
 ## Setup
 
@@ -68,6 +68,14 @@ so it is opt-in and costs a fraction of a cent:
 
 ```bash
 RUN_OCR_INTEGRATION=1 npx vitest run lib/ocr/__tests__/scan.integration.test.ts
+```
+
+And a live check of row level security, which drives the policies through the
+same client library the app uses. It needs the keys in `.env.local` but no
+Docker, and it deletes the bills it creates:
+
+```bash
+RUN_DB_INTEGRATION=1 npx vitest run lib/supabase/__tests__/rls.integration.test.ts
 ```
 
 ## Routes
@@ -305,6 +313,37 @@ Anything short of a match is recorded and shown to the payer to judge. It never
 rejects the guest and never accuses anyone; the wording routes to the payer
 instead. And the payer can always undo a settlement, because a mark that cannot
 be reversed is not one you can trust.
+
+## Reminders
+
+Asking a friend for RM23.50 is socially expensive. A neutral third party doing
+the asking is the point, which only works if the words never sound like a
+demand.
+
+**Nothing is sent automatically.** The app works out who is due and writes the
+message; the payer taps once and their own WhatsApp sends it. Automated outbound
+messaging would need WhatsApp Business API approval and drifts toward spam, so
+it is deliberately not built.
+
+**Three nudges, ever.** The default cadence leaves it three days, then every
+three days, and then stops. The cap is enforced in the action as well as in the
+UI, so a stale page cannot send a fourth. The payer can snooze one person for
+three days, never nudge them again, or switch the whole bill off.
+
+**The clock starts when reminders are switched on**, not when the bill was
+created — turning them on for a week-old bill would otherwise fire three at once.
+
+**The copy is blameless**, and a test enforces it: no "owe", no "overdue", no
+"outstanding", no "please pay", at any stage. Later nudges get more direct but
+not colder, and the last one still offers a way out.
+
+> Hi Ben! Just a nudge on the RM96.78 for Sunday breakfast at Village Park 🙂
+> No rush — everything's here if you want to check it: …
+
+**No group shaming.** A message carries one name and one amount and is addressed
+to one person; a test asserts it mentions nobody else and contains exactly one
+figure. The WhatsApp link carries no phone number — the payer picks the contact —
+so the app never stores a guest's number and cannot message anyone by itself.
 
 ## Notes on the build
 

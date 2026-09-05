@@ -7,12 +7,13 @@ import { toBillInput } from '@/lib/bill/to-engine-input';
 import { computeSplit, type SplitResult } from '@/lib/split';
 import { siteUrl } from '@/lib/supabase/env';
 import { createClient } from '@/lib/supabase/server';
-import type { ParticipantRow, PaymentProofRow } from '@/lib/supabase/types';
+import type { ParticipantReminderRow, ParticipantRow, PaymentProofRow } from '@/lib/supabase/types';
 
 import { deleteBill, openBill } from '../actions';
 import { BillSettingsForm, ItemsEditor, PeopleEditor } from './editor-forms';
 import { LiveRefresh } from './live-refresh';
 import { ScanPanel } from './scan-panel';
+import { RemindersPanel } from './reminders-panel';
 import { SettlementPanel } from './settlement-panel';
 import { SharePanel } from './share-panel';
 
@@ -51,15 +52,22 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
     splitError = error instanceof Error ? error.message : 'Could not work out the totals';
   }
 
-  const [{ data: proofRows }, { data: profile }] = await Promise.all([
+  const [{ data: proofRows }, { data: profile }, { data: reminderRows }] = await Promise.all([
     supabase
       .from('payment_proofs')
       .select('*')
       .eq('bill_id', bill.id)
       .order('created_at', { ascending: false }),
     supabase.from('profiles').select('duitnow_mobile').eq('id', user.id).maybeSingle(),
+    supabase
+      .from('participants')
+      .select('id, reminders_muted, reminder_snoozed_until, reminders_sent, last_reminded_at')
+      .eq('bill_id', bill.id),
   ]);
   const proofs = (proofRows ?? []) as PaymentProofRow[];
+  const reminderState = new Map(
+    ((reminderRows ?? []) as ParticipantReminderRow[]).map((row) => [row.id, row]),
+  );
 
   const shareUrl = `${siteUrl()}/b/${bill.share_token}`;
   const heading = bill.title || bill.venue || 'Untitled bill';
@@ -160,6 +168,13 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
           participants={participants}
           proofs={proofs}
           hasDuitnowMobile={Boolean(profile?.duitnow_mobile)}
+        />
+
+        <RemindersPanel
+          bill={bill}
+          split={split}
+          participants={participants}
+          reminderState={reminderState}
         />
 
         {bill.status === 'draft' ? (

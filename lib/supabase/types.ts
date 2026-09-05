@@ -34,6 +34,9 @@ export interface BillRow {
   status: BillStatus;
   share_token: string;
   created_at: string;
+  reminders_enabled: boolean;
+  reminder_cadence: string;
+  reminders_started_at: string | null;
 }
 
 export interface BillItemRow {
@@ -52,6 +55,15 @@ export interface ParticipantRow {
   settled_at: string | null;
   settled_method: SettledMethod | null;
   created_at: string;
+}
+
+/** Reminder state, which guests are not granted and so never see. */
+export interface ParticipantReminderRow {
+  id: string;
+  reminders_muted: boolean;
+  reminder_snoozed_until: string | null;
+  reminders_sent: number;
+  last_reminded_at: string | null;
 }
 
 /** Only ever visible to the payer; guests are not granted the column. */
