@@ -114,9 +114,12 @@ async function main() {
 
     let reachable = false;
     try {
-      const response = await fetch(`${base}/rest/v1/`, { headers });
-      if (response.ok || response.status === 404) {
-        pass('project is reachable');
+      // The auth health endpoint, deliberately: PostgREST's root (/rest/v1/)
+      // accepts only the service_role key, so probing it makes a perfectly good
+      // anon key look rejected.
+      const response = await fetch(`${base}/auth/v1/health`, { headers });
+      if (response.ok) {
+        pass('project is reachable, anon key accepted');
         reachable = true;
       } else if (response.status === 401) {
         fail('anon key rejected', 'The URL and the key may be from different projects.');
@@ -130,31 +133,55 @@ async function main() {
     if (reachable) {
       // Each table belongs to a different migration, so a missing one says
       // exactly which migration has not been applied.
+      //
+      // `expect` differs by table. Guests may read bills and claims, subject to
+      // row level security, so those return an empty list. Guests may not read
+      // receipts at all -- 0004 revokes it, because a receipt photo shows the
+      // last four digits of a card -- so a permission error there is the
+      // feature working, not a fault.
       const tables = [
-        ['bills', '0001_init.sql'],
-        ['claims', '0001_init.sql'],
-        ['receipts', '0004_receipts.sql'],
+        { name: 'bills', migration: '0001_init.sql', expect: 'readable' },
+        { name: 'claims', migration: '0001_init.sql', expect: 'readable' },
+        { name: 'receipts', migration: '0004_receipts.sql', expect: 'denied-to-guests' },
       ];
-      for (const [table, migration] of tables) {
-        try {
-          const response = await fetch(`${base}/rest/v1/${table}?select=id&limit=1`, { headers });
-          const body = await response.text();
 
-          if (response.ok) {
-            pass(`table "${table}" exists`);
-          } else if (body.includes('42P01') || response.status === 404) {
-            fail(`table "${table}" is missing`, `Apply ${migration}.`);
-          } else if (body.includes('42501') && body.includes('function')) {
-            // The Phase 1 bug: policies cannot call their own predicates.
+      for (const { name, migration, expect, } of tables) {
+        const column = name === 'claims' ? 'item_id' : 'id';
+        try {
+          const response = await fetch(`${base}/rest/v1/${name}?select=${column}&limit=1`, {
+            headers,
+          });
+          const body = await response.text();
+          const missing = body.includes('42P01') || response.status === 404;
+          const denied = body.includes('42501');
+
+          if (missing) {
+            fail(`table "${name}" is missing`, `Apply ${migration}.`);
+          } else if (denied && body.includes('function')) {
+            // Distinct from a table-level denial: this is a policy unable to
+            // call its own predicate, which locks everyone out of everything.
             fail(
-              `policies on "${table}" cannot call their predicate functions`,
+              `policies on "${name}" cannot call their predicate functions`,
               'Apply 0003_policy_function_grants.sql.',
             );
+          } else if (expect === 'denied-to-guests') {
+            if (denied) {
+              pass(`table "${name}" exists`, 'and is correctly closed to guests');
+            } else if (response.ok) {
+              fail(
+                `guests can read "${name}"`,
+                'Receipt photos are payer-only. Re-apply 0004_receipts.sql.',
+              );
+            } else {
+              warn(`table "${name}" returned ${response.status}`, body.slice(0, 160));
+            }
+          } else if (response.ok) {
+            pass(`table "${name}" exists`);
           } else {
-            warn(`table "${table}" returned ${response.status}`, body.slice(0, 160));
+            warn(`table "${name}" returned ${response.status}`, body.slice(0, 160));
           }
         } catch (error) {
-          fail(`could not query "${table}"`, error.message);
+          fail(`could not query "${name}"`, error.message);
         }
       }
 
