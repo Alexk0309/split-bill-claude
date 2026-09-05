@@ -20,30 +20,32 @@ bank-to-bank directly between people via DuitNow.
 
 ## Setup
 
-Create a Supabase project, then:
+See **[SETUP.md](SETUP.md)** for the full walkthrough: Anthropic key, Supabase
+project, migrations, auth URLs. The short version:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the
-project's API settings, and `ANTHROPIC_API_KEY` for receipt scanning. Without an
-Anthropic key everything else still works: scanning reports that it is not
-configured and points the payer at manual entry.
-
-Apply the schema:
+Fill in `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+`ANTHROPIC_API_KEY`, then apply the schema:
 
 ```bash
-supabase db push
+npx supabase link --project-ref YOUR_PROJECT_REF && npx supabase db push
 ```
 
-Or paste `supabase/migrations/0001_init.sql` into the SQL editor. Supabase Auth
-needs email sign-in enabled, with `<your-origin>/auth/callback` in the redirect
-allow list.
+Verify everything against the live services:
+
+```bash
+npm run check
+```
 
 ```bash
 npm run dev
 ```
+
+Without an Anthropic key everything still works; receipt scanning reports that
+it is not configured and points the payer at manual entry.
 
 ## Running the tests
 
