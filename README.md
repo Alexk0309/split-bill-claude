@@ -63,6 +63,13 @@ The row level security tests need Docker and the Supabase CLI:
 npm run db:test
 ```
 
+There is also a live check of the receipt scanning path. It calls the real API,
+so it is opt-in and costs a fraction of a cent:
+
+```bash
+RUN_OCR_INTEGRATION=1 npx vitest run lib/ocr/__tests__/scan.integration.test.ts
+```
+
 ## Routes
 
 | | |
