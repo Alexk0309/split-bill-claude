@@ -7,6 +7,15 @@ import type { BillRow } from '@/lib/supabase/types';
 
 import { createBill } from './actions';
 
+/**
+ * Never prerendered. Every one of these pages is a function of who is signed in,
+ * so a build-time render is both meaningless and, without env vars present at
+ * build time, fatal -- which is how this surfaced: the first Vercel build died
+ * trying to prerender the landing page.
+ */
+export const dynamic = 'force-dynamic';
+
+
 function whenLabel(iso: string): string {
   const date = new Date(iso);
   return date.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });

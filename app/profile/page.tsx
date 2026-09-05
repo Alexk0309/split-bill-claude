@@ -5,6 +5,15 @@ import { createClient } from '@/lib/supabase/server';
 
 import { ProfileForm } from './profile-form';
 
+/**
+ * Never prerendered. Every one of these pages is a function of who is signed in,
+ * so a build-time render is both meaningless and, without env vars present at
+ * build time, fatal -- which is how this surfaced: the first Vercel build died
+ * trying to prerender the landing page.
+ */
+export const dynamic = 'force-dynamic';
+
+
 export default async function ProfilePage() {
   const supabase = await createClient();
   const {
