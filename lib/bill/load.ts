@@ -12,6 +12,16 @@ import type {
 } from '@/lib/supabase/types';
 
 /**
+ * `participants` is the one table with column-level grants: guests may read the
+ * names but not the claim tokens. Postgres refuses `select *` outright when a
+ * role lacks any column, so the columns have to be named -- and naming them is
+ * what keeps a future column from silently breaking every guest page.
+ *
+ * The payer holds full privileges and reads any extra columns separately.
+ */
+const GUEST_PARTICIPANT_COLUMNS = 'id, bill_id, display_name, settled_at, settled_method, created_at';
+
+/**
  * Loads everything a bill needs in one round trip per table.
  *
  * The queries are deliberately identical for the payer and for a guest: row
@@ -24,7 +34,7 @@ async function loadChildren(
 ): Promise<Omit<BillBundle, 'bill'>> {
   const [items, participants, claims, adjustments, belanja] = await Promise.all([
     supabase.from('bill_items').select('*').eq('bill_id', billId).order('position'),
-    supabase.from('participants').select('*').eq('bill_id', billId).order('created_at'),
+    supabase.from('participants').select(GUEST_PARTICIPANT_COLUMNS).eq('bill_id', billId).order('created_at'),
     supabase.from('claims').select('*').eq('bill_id', billId),
     supabase.from('adjustments').select('*').eq('bill_id', billId).order('created_at'),
     supabase.from('belanja').select('*').eq('bill_id', billId),
