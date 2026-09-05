@@ -8,7 +8,7 @@
 -- column they were never granted?
 
 begin;
-select plan(26);
+select plan(27);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: two unrelated bills owned by two different payers.
@@ -219,6 +219,22 @@ select is(
   (select count(*)::int from public.bill_items where name = 'Ribeye'),
   0,
   'payer cannot read another payer''s items'
+);
+
+-- ---------------------------------------------------------------------------
+-- Policies can actually call their own predicates
+-- ---------------------------------------------------------------------------
+-- Postgres checks EXECUTE on a function called from a policy against the role
+-- running the query. Revoking it from anon/authenticated locks everyone out of
+-- every table, which is a failure mode that looks like an empty database
+-- rather than an error.
+
+select ok(
+  has_function_privilege('authenticated', 'public.owns_bill(uuid)', 'execute')
+    and has_function_privilege('anon', 'public.bill_is_shared(uuid)', 'execute')
+    and has_function_privilege('anon', 'public.is_claim_token_holder(uuid)', 'execute')
+    and has_function_privilege('anon', 'public.request_share_token()', 'execute'),
+  'policy predicate functions are executable by the roles whose policies call them'
 );
 
 -- ---------------------------------------------------------------------------

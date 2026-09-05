@@ -14,7 +14,7 @@ bank-to-bank directly between people via DuitNow.
 | 0 | Calculation engine | done |
 | 1 | Bill creation and the guest claim page | done |
 | 2 | Live claiming | done |
-| 3 | Receipt OCR | not started |
+| 3 | Receipt OCR | done |
 | 4 | Settlement | not started |
 | 5 | Reminders | not started |
 
@@ -27,7 +27,11 @@ cp .env.example .env.local
 ```
 
 Fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the
-project's API settings, and apply the schema:
+project's API settings, and `ANTHROPIC_API_KEY` for receipt scanning. Without an
+Anthropic key everything else still works: scanning reports that it is not
+configured and points the payer at manual entry.
+
+Apply the schema:
 
 ```bash
 supabase db push
@@ -65,6 +69,7 @@ npm run db:test
 | `/login` | Magic link sign-in. Payer only |
 | `/bills` | The payer's bills |
 | `/bills/[id]` | Build the bill, set rates, get the share link |
+| `/bills/[id]/review/[receiptId]` | Check what the scan read before it becomes a bill |
 | `/b/[token]` | The guest claim page. No account, no session |
 
 ## The engine
@@ -215,6 +220,47 @@ The connection state is deliberately quiet — nothing at all when it works, and
 when it does not, a line saying the taps are safe rather than that something
 broke.
 
+## Receipt OCR
+
+The payer photographs the receipt; the parsed items land on a review screen, and
+only reach the bill once the payer has said so.
+
+**The response format is enforced, not requested.** `output_config.format`
+carries a JSON Schema, so "strict JSON only, no prose, no markdown fences" is a
+property of the API call rather than something the prompt asks for and hopes
+for. The prompt spends its words on what a schema cannot express: what counts as
+a line item, how Malaysian charge lines are printed, and that an unreadable
+photo should come back empty rather than guessed at.
+
+**Nothing is trusted on the way in.** The model's output is re-validated before
+it is stored and again before it is rendered. A price that is somehow a float or
+negative would make the engine throw and take the page down, instead of showing
+the payer a screen they can fix.
+
+**Reconciliation is live.** If the items do not sum to the printed subtotal, the
+review screen says so with both figures and the difference, and recomputes as
+the payer edits — so correcting the misread line clears the warning there and
+then. A mismatch between the printed charges and the printed total is flagged
+separately.
+
+**Rates are back-derived, not assumed.** A printed charge is a rounded number,
+so dividing it out gives a rate with a tail on it. Candidate rates from a round
+grid are tested by recomputing the charge instead: the nicest rate that
+reproduces the printed amount exactly is the one the restaurant used, and when
+nothing round fits — a restaurant charging something unusual — the quotient is
+used as-is. The result is that the totals guests see match the paper on the
+table.
+
+**Every failure ends at manual entry.** A bad photo, a non-receipt image, an
+unconfigured key, a rate limit, a dropped connection: each returns a sentence
+the payer can act on, with the manual form already on the screen behind it.
+
+**Receipts are payer-only.** A receipt photo routinely shows the last four
+digits of a card. There is no guest policy on the `receipts` table or the
+storage bucket at all, and photos are downscaled to 1568px and re-encoded as
+JPEG in the browser before upload — which also normalises an iPhone's HEIC into
+something the API accepts.
+
 ## Notes on the build
 
 - `@supabase/ssr` is used alongside `@supabase/supabase-js`. It is Supabase's own
@@ -226,6 +272,14 @@ broke.
   and it belongs per bill rather than per app.
 - Guest claims are written with `upsert ... ignoreDuplicates`, so a double tap
   cannot collide on the composite primary key.
+- The vision model is `claude-sonnet-4-6`, as named in the spec. `claude-sonnet-5`
+  is newer and cheaper ($2/$10 per MTok against $3/$15); set `ANTHROPIC_MODEL` to
+  switch.
+- 0003 grants `EXECUTE` back on the row level security predicate functions.
+  0001 revoked it on the reasoning that they were internal machinery, which was
+  wrong: Postgres evaluates a policy expression as the role running the query,
+  so with EXECUTE revoked every policy that calls one fails and nobody can read
+  anything.
 - Tap direction is decided inside the state updater, against the queue React
   holds at that instant. Deciding from a snapshot made every tap in a fast burst
   say "claim it", so a quick double tap left the item on.

@@ -12,6 +12,7 @@ import type { ParticipantRow } from '@/lib/supabase/types';
 import { deleteBill, openBill } from '../actions';
 import { BillSettingsForm, ItemsEditor, PeopleEditor } from './editor-forms';
 import { LiveRefresh } from './live-refresh';
+import { ScanPanel } from './scan-panel';
 import { SharePanel } from './share-panel';
 
 export default async function BillEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -67,6 +68,8 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
       <h1 className="mt-2 text-2xl font-bold tracking-tight text-balance">{heading}</h1>
 
       <div className="mt-5 space-y-6">
+        <ScanPanel billId={bill.id} userId={user.id} />
+
         <BillSettingsForm bill={bill} />
 
         <ItemsEditor billId={bill.id} items={items} claimantsByItem={claimantsByItem} />

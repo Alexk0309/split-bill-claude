@@ -188,3 +188,93 @@ export async function deleteBill(formData: FormData): Promise<void> {
   revalidatePath('/bills');
   redirect('/bills');
 }
+
+/* -------------------------------------------------------------------------- */
+/* Receipt review                                                             */
+/* -------------------------------------------------------------------------- */
+
+interface ReviewedItem {
+  name: string;
+  price: string;
+}
+
+function parseReviewedItems(raw: string): ReviewedItem[] | null {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) return null;
+    return value.map((entry) => ({
+      name: String((entry as ReviewedItem)?.name ?? ''),
+      price: String((entry as ReviewedItem)?.price ?? ''),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes the payer's reviewed items onto the bill.
+ *
+ * What arrives here is what was on the screen, not what the model said: the
+ * review step is between the two, and this action has no access to the parsed
+ * receipt at all. Prices are re-parsed server-side, so an edited field is
+ * validated the same way a hand-typed one is.
+ */
+export async function applyReceipt(
+  _previous: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase } = await requireUser();
+  const billId = text(formData, 'billId');
+  const receiptId = text(formData, 'receiptId');
+  if (!billId) return fail('Missing bill');
+
+  const rows = parseReviewedItems(text(formData, 'items'));
+  if (!rows) return fail('Could not read the edited items');
+
+  const items: { name: string; price_sen: number }[] = [];
+  for (const row of rows) {
+    const name = row.name.trim();
+    if (name === '') return fail('Every item needs a name');
+    try {
+      items.push({ name, price_sen: parsePositiveAmountToSen(row.price) });
+    } catch {
+      return fail(
+        row.price.trim() === ''
+          ? `"${name}" has no price`
+          : `"${row.price}" is not a price (${name})`,
+      );
+    }
+  }
+  if (items.length === 0) return fail('Add at least one item');
+
+  let serviceChargeRate: number;
+  let serviceTaxRate: number;
+  try {
+    serviceChargeRate = parsePercentToRate(text(formData, 'serviceChargePercent'));
+    serviceTaxRate = parsePercentToRate(text(formData, 'serviceTaxPercent'));
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : 'Check the rates');
+  }
+
+  // One transaction, so the bill is never briefly half-empty while somebody is
+  // claiming from it.
+  const { error } = await supabase.rpc('replace_bill_items', {
+    p_bill_id: billId,
+    p_items: items,
+    p_service_charge_rate: serviceChargeRate,
+    p_service_tax_rate: serviceTaxRate,
+    p_venue: text(formData, 'venue') || null,
+  });
+  if (error) return fail(error.message);
+
+  if (receiptId) {
+    await supabase
+      .from('receipts')
+      .update({ applied_at: new Date().toISOString() })
+      .eq('id', receiptId)
+      .eq('bill_id', billId);
+  }
+
+  refresh(billId);
+  redirect(`/bills/${billId}`);
+}
