@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { deriveRates, reconcile } from '@/lib/ocr/reconcile';
+import { throttleReceiptScan } from '@/lib/ai/throttle';
 import { isSupportedMediaType, scanReceipt } from '@/lib/ocr/scan';
 import { createClient } from '@/lib/supabase/server';
 
@@ -51,6 +52,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: bill } = await supabase.from('bills').select('id').eq('id', billId).maybeSingle();
   if (!bill) {
     return NextResponse.json({ ok: false, message: 'Bill not found.' }, { status: 404 });
+  }
+
+  const throttle = await throttleReceiptScan(supabase, billId);
+  if (!throttle.allowed) {
+    return NextResponse.json({ ok: false, message: throttle.message });
   }
 
   const { data: receiptRow, error: insertError } = await supabase

@@ -6,6 +6,7 @@ import { toBillInput } from '@/lib/bill/to-engine-input';
 import { assessProof } from '@/lib/settlement/proof';
 import { scanProof } from '@/lib/settlement/scan-proof';
 import { computeSplit } from '@/lib/split';
+import { throttleProofUpload } from '@/lib/ai/throttle';
 import { createAdminClient, hasServiceRoleKey } from '@/lib/supabase/admin';
 
 /**
@@ -92,6 +93,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch {
     return bad('This bill does not add up yet. Ask the payer to finish it first.');
   }
+
+  // Checked before the vision call, so a flood costs nothing but a row count.
+  const throttle = await throttleProofUpload(admin, participantId);
+  if (!throttle.allowed) return NextResponse.json({ ok: false, message: throttle.message });
 
   const scanned = await scanProof(imageBase64, mediaType);
   if (!scanned.ok) {
