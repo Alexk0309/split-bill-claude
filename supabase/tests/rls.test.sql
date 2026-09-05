@@ -8,7 +8,11 @@
 -- column they were never granted?
 
 begin;
-select plan(27);
+-- no_plan rather than a hand-maintained count: the suite is linear with no
+-- conditional skips, so an explicit plan buys nothing here and has twice failed
+-- the whole run over a miscount rather than a real fault. finish() still
+-- reports how many assertions ran.
+select no_plan();
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: two unrelated bills owned by two different payers.
@@ -259,6 +263,55 @@ select lives_ok(
             'b2222222-0000-0000-0000-000000000003',
             'bbbbbbbb-0000-0000-0000-000000000002')$$,
   'a claim still saves even if the realtime layer is unavailable'
+);
+
+-- ---------------------------------------------------------------------------
+-- The writes each role actually performs
+-- ---------------------------------------------------------------------------
+-- Asserting privileges in the abstract missed a whole class of bug twice: a
+-- column DEFAULT is evaluated as the *inserting* role, so `generate_token`
+-- being revoked from `authenticated` made creating a bill fail even though
+-- every policy was correct. These do the real inserts instead.
+
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+set local request.headers = '{}';
+
+select lives_ok(
+  $$insert into public.bills (owner_id, title)
+    values ('11111111-1111-1111-1111-111111111111', 'Created by the payer')$$,
+  'payer can create a bill, so the share_token default is callable by the inserter'
+);
+
+select lives_ok(
+  $$insert into public.participants (bill_id, display_name)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', 'Added by the payer')$$,
+  'payer can add a participant, so the claim_token default is callable too'
+);
+
+select lives_ok(
+  $$insert into public.bill_items (bill_id, name, price_sen)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', 'Added by the payer', 500)$$,
+  'payer can add an item, so neither trigger blocks the write'
+);
+
+select is(
+  (select subtotal_sen from public.bills where id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  2300,
+  'the subtotal trigger ran as the payer and updated the bill'
+);
+
+-- A guest reaches the same defaults through a SECURITY DEFINER function, which
+-- evaluates them as the owner. `anon` is deliberately not granted them.
+reset role;
+set local role anon;
+set local request.jwt.claims = '';
+set local request.headers = '{"x-share-token":"share-token-a"}';
+
+select lives_ok(
+  $$select public.join_bill('share-token-a', 'Walk-in guest')$$,
+  'guest can join without being granted the token function directly'
 );
 
 select * from finish();

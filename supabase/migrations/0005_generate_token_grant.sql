@@ -1,0 +1,24 @@
+-- Fix: a column DEFAULT is evaluated as the inserting role.
+--
+-- 0003 fixed this same class of mistake for the policy predicate functions, and
+-- then talked itself out of fixing it here, with the comment:
+--
+--   `generate_token` stays revoked: it is only ever called from column defaults
+--   and from SECURITY DEFINER functions, both of which run as the owner.
+--
+-- The second half is right and the first half is wrong. A DEFAULT expression is
+-- evaluated with the privileges of whoever is doing the INSERT, not the table
+-- owner, so `bills.share_token` and `participants.claim_token` both call this
+-- function as the payer. With EXECUTE revoked, creating a bill fails outright
+-- with "permission denied for function generate_token".
+--
+-- Granting it is safe: it takes no input that identifies anything, touches no
+-- table, and returns a fresh random string.
+--
+-- `anon` is deliberately not granted. Guests never insert one of these rows
+-- directly -- they go through `join_bill`, which is SECURITY DEFINER and so
+-- evaluates the default as the owner. The tests now cover both paths by
+-- performing the actual inserts, rather than asserting grants in the abstract,
+-- which is what let this slip through twice.
+
+grant execute on function public.generate_token(int) to authenticated;
