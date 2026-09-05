@@ -8,8 +8,9 @@ import { toBillInput } from '@/lib/bill/to-engine-input';
 import { formatRM } from '@/lib/money';
 import { computeSplit, type PersonBreakdown, type SplitResult } from '@/lib/split';
 import { createGuestClient } from '@/lib/supabase/guest';
-import type { BillBundle, GuestIdentity, ParticipantRow } from '@/lib/supabase/types';
+import type { BillBundle, GuestIdentity, ParticipantRow, PayeeInfo } from '@/lib/supabase/types';
 
+import { SettleSheet } from './settle-sheet';
 import { useClaimSync, type SyncStatus } from './use-claim-sync';
 
 /* -------------------------------------------------------------------------- */
@@ -293,13 +294,16 @@ function BreakdownSheet({
 export function ClaimPage({
   initialBundle,
   shareToken,
+  payee,
 }: {
   initialBundle: BillBundle;
   shareToken: string;
+  payee: PayeeInfo | null;
 }) {
   const [identity, setIdentity] = useState<GuestIdentity | null>(null);
   const [ready, setReady] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showSettle, setShowSettle] = useState(false);
 
   const billId = initialBundle.bill.id;
 
@@ -310,7 +314,7 @@ export function ClaimPage({
     setReady(true);
   }, [billId]);
 
-  const { bundle, status, pendingItems, toggle, error, addParticipant } = useClaimSync({
+  const { bundle, status, pendingItems, toggle, error, addParticipant, refresh } = useClaimSync({
     initialBundle,
     shareToken,
     identity,
@@ -363,6 +367,8 @@ export function ClaimPage({
 
   const myName = participantsById.get(identity.participantId)?.display_name ?? 'You';
   const unclaimedCount = split?.unclaimedItems.length ?? 0;
+  const myRow = participantsById.get(identity.participantId) ?? null;
+  const isSettled = Boolean(myRow?.settled_at);
 
   return (
     <>
@@ -483,28 +489,56 @@ export function ClaimPage({
         className="fixed inset-x-0 bottom-0 z-10 border-t"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        <button
-          type="button"
-          onClick={() => setShowBreakdown(true)}
-          disabled={!me}
-          className="tap mx-auto flex w-full max-w-md items-center justify-between gap-3 px-5 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] text-left"
-        >
-          <span>
+        <div className="mx-auto flex w-full max-w-md items-center gap-3 px-5 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={() => setShowBreakdown(true)}
+            disabled={!me}
+            className="tap min-w-0 flex-1 text-left"
+          >
             <span className="block text-[13px]" style={{ color: 'var(--text-muted)' }}>
               Your share {me ? '· tap for details' : ''}
             </span>
             <span className="block text-2xl font-bold">
               <Money sen={me?.amountDueSen ?? 0} />
             </span>
-          </span>
-          <span aria-hidden="true" style={{ color: 'var(--text-muted)' }}>
-            ⌃
-          </span>
-        </button>
+          </button>
+
+          {isSettled ? (
+            <span
+              className="shrink-0 rounded-xl px-3 py-2 text-[14px] font-semibold"
+              style={{ background: 'var(--good-wash)', color: 'var(--good)' }}
+            >
+              Paid
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary shrink-0"
+              disabled={!me}
+              onClick={() => setShowSettle(true)}
+            >
+              Settle up
+            </button>
+          )}
+        </div>
       </div>
 
       {showBreakdown && me && split ? (
         <BreakdownSheet person={me} split={split} onClose={() => setShowBreakdown(false)} />
+      ) : null}
+
+      {showSettle && me ? (
+        <SettleSheet
+          shareToken={shareToken}
+          claimToken={identity.claimToken}
+          amountSen={me.amountDueSen}
+          payee={payee}
+          settledAt={myRow?.settled_at ?? null}
+          settledMethod={myRow?.settled_method ?? null}
+          onClose={() => setShowSettle(false)}
+          onSettled={refresh}
+        />
       ) : null}
     </>
   );

@@ -98,3 +98,27 @@ export interface GuestIdentity {
   participantId: string;
   claimToken: string;
 }
+
+export interface PaymentProofRow {
+  id: string;
+  bill_id: string;
+  participant_id: string;
+  amount_sen: number | null;
+  reference: string | null;
+  paid_at: string | null;
+  recipient: string | null;
+  bank: string | null;
+  confidence: 'high' | 'medium' | 'low' | null;
+  expected_sen: number;
+  matched: boolean;
+  mismatch_reason: string | null;
+  created_at: string;
+}
+
+/** What a guest is allowed to know about the person they are paying. */
+export interface PayeeInfo {
+  display_name: string | null;
+  duitnow_mobile: string | null;
+  /** A short-lived signed URL, generated server-side; never the storage path. */
+  qr_url: string | null;
+}

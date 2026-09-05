@@ -97,6 +97,21 @@ async function main() {
     pass('NEXT_PUBLIC_SUPABASE_ANON_KEY', `set, ${anonKey.length} chars`);
   }
 
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey || serviceKey.includes('your-service-role')) {
+    warn(
+      'SUPABASE_SERVICE_ROLE_KEY is not set',
+      'Guests cannot upload payment proofs; the payer marks people paid by hand.',
+    );
+  } else if (serviceKey === anonKey) {
+    fail(
+      'SUPABASE_SERVICE_ROLE_KEY is the same as the anon key',
+      'Copy the service_role key from Project Settings -> API.',
+    );
+  } else {
+    pass('SUPABASE_SERVICE_ROLE_KEY', `set, ${serviceKey.length} chars`);
+  }
+
   if (!anthropicKey || anthropicKey.includes('sk-ant-...')) {
     warn('ANTHROPIC_API_KEY is not set', 'Receipt scanning will be disabled; everything else works.');
   } else if (!anthropicKey.startsWith('sk-ant-')) {
@@ -143,6 +158,7 @@ async function main() {
         { name: 'bills', migration: '0001_init.sql', expect: 'readable' },
         { name: 'claims', migration: '0001_init.sql', expect: 'readable' },
         { name: 'receipts', migration: '0004_receipts.sql', expect: 'denied-to-guests' },
+        { name: 'payment_proofs', migration: '0006_settlement.sql', expect: 'readable' },
       ];
 
       for (const { name, migration, expect, } of tables) {

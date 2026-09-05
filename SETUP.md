@@ -54,8 +54,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 The second is the **anon / public** key — newer dashboards may call it the
 **publishable** key. Either way it is the client-side one, safe to ship in a
-browser. Do **not** use the `service_role` / secret key anywhere in this project:
-it bypasses row level security entirely.
+browser.
+
+From the same page, also copy the **`service_role`** key:
+
+```
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+```
+
+This one bypasses row level security entirely, so it is server-only and its name
+deliberately has no `NEXT_PUBLIC_` prefix. It is used in exactly one place:
+recording a payment proof. A guest never signs in, so anything they write they
+could forge — the figures on a proof are therefore read out of the screenshot by
+the server and written with an authority the guest does not have. Without it,
+proof upload is switched off and the payer marks people paid by hand; everything
+else still works.
+
+Never put it in a `NEXT_PUBLIC_` variable, and never commit it.
 
 ---
 

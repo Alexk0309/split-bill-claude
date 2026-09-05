@@ -47,6 +47,8 @@ export interface ClaimSync {
   error: string | null;
   /** Adds a participant the guest just created, before the next refetch. */
   addParticipant: (participant: BillBundle['participants'][number]) => void;
+  /** Pulls fresh server state now, for changes this page made outside the queue. */
+  refresh: () => void;
 }
 
 export function useClaimSync({
@@ -258,5 +260,13 @@ export function useClaimSync({
     );
   }, []);
 
-  return { bundle, status, pendingItems, toggle, error, addParticipant };
+  return {
+    bundle,
+    status,
+    pendingItems,
+    toggle,
+    error,
+    addParticipant,
+    refresh: () => void refetch(),
+  };
 }

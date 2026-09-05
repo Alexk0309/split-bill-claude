@@ -7,12 +7,13 @@ import { toBillInput } from '@/lib/bill/to-engine-input';
 import { computeSplit, type SplitResult } from '@/lib/split';
 import { siteUrl } from '@/lib/supabase/env';
 import { createClient } from '@/lib/supabase/server';
-import type { ParticipantRow } from '@/lib/supabase/types';
+import type { ParticipantRow, PaymentProofRow } from '@/lib/supabase/types';
 
 import { deleteBill, openBill } from '../actions';
 import { BillSettingsForm, ItemsEditor, PeopleEditor } from './editor-forms';
 import { LiveRefresh } from './live-refresh';
 import { ScanPanel } from './scan-panel';
+import { SettlementPanel } from './settlement-panel';
 import { SharePanel } from './share-panel';
 
 export default async function BillEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -49,6 +50,16 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
   } catch (error) {
     splitError = error instanceof Error ? error.message : 'Could not work out the totals';
   }
+
+  const [{ data: proofRows }, { data: profile }] = await Promise.all([
+    supabase
+      .from('payment_proofs')
+      .select('*')
+      .eq('bill_id', bill.id)
+      .order('created_at', { ascending: false }),
+    supabase.from('profiles').select('duitnow_mobile').eq('id', user.id).maybeSingle(),
+  ]);
+  const proofs = (proofRows ?? []) as PaymentProofRow[];
 
   const shareUrl = `${siteUrl()}/b/${bill.share_token}`;
   const heading = bill.title || bill.venue || 'Untitled bill';
@@ -141,6 +152,14 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
           title={bill.title}
           venue={bill.venue}
           totalSen={split?.billTotalSen ?? 0}
+        />
+
+        <SettlementPanel
+          billId={bill.id}
+          split={split}
+          participants={participants}
+          proofs={proofs}
+          hasDuitnowMobile={Boolean(profile?.duitnow_mobile)}
         />
 
         {bill.status === 'draft' ? (

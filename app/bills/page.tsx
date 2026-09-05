@@ -35,11 +35,16 @@ export default async function BillsPage() {
     <main className="mx-auto max-w-md px-5 pt-6 pb-28">
       <header className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Your bills</h1>
-        <form action="/auth/signout" method="post">
-          <button type="submit" className="btn btn-ghost tap px-2 text-[14px]">
-            Sign out
-          </button>
-        </form>
+        <span className="flex items-center gap-1">
+          <Link href="/profile" className="btn btn-ghost tap px-2 text-[14px]">
+            Payment details
+          </Link>
+          <form action="/auth/signout" method="post">
+            <button type="submit" className="btn btn-ghost tap px-2 text-[14px]">
+              Sign out
+            </button>
+          </form>
+        </span>
       </header>
 
       <div className="mt-5 space-y-2">
