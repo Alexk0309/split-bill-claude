@@ -169,10 +169,7 @@ npx --yes localtunnel --port 3000
 Set `NEXT_PUBLIC_SITE_URL` in `.env.local` to the URL it prints, add
 `<that-url>/auth/callback` to the Supabase redirect list, and restart `npm run dev`.
 
-**Or deploy it.** Vercel is the target: import the repo, add the same three
-environment variables, and add the deployed origin to the redirect list.
-`NEXT_PUBLIC_SITE_URL` is not needed there — Vercel's own URL is picked up
-automatically.
+**Or deploy it.** See the next section.
 
 ---
 
@@ -202,3 +199,53 @@ anyone.
 ```bash
 npx supabase stop
 ```
+
+---
+
+## 8. Deploying to Vercel
+
+```bash
+npx vercel login
+```
+
+```bash
+npx vercel link --yes
+```
+
+Then set the four environment variables from step 1 and 2 in **Project →
+Settings → Environment Variables**, Production scope. The dashboard takes a
+whole `.env` block pasted at once. `SUPABASE_SERVICE_ROLE_KEY` and
+`ANTHROPIC_API_KEY` must **not** get a `NEXT_PUBLIC_` prefix — that prefix is
+what ships a value to the browser.
+
+`NEXT_PUBLIC_SITE_URL` is not needed: `siteUrl()` reads Vercel's own
+`VERCEL_PROJECT_PRODUCTION_URL`, and it is only ever called server-side, so
+share links point at the real domain automatically.
+
+Then deploy:
+
+```bash
+npx vercel --prod
+```
+
+### Three things that will stop you
+
+**Your git commit email has to be a real one.** Vercel refuses to build a commit
+whose author it cannot identify. With `user.email` unset, git derives one from
+the machine hostname — `you@Your-MacBook-Air.local` — and the deployment is
+blocked with no build log at all, showing only an opaque `UNKNOWN` status.
+
+```bash
+git config user.email "the-email-on-your-github-account"
+```
+
+**Deployment Protection is on by default for team accounts**, and it is fatal
+here: every request redirects to a Vercel login, and guests are the entire point
+of this product and have no Vercel account. Turn it off at **Project → Settings
+→ Deployment Protection → Vercel Authentication → Disabled**.
+
+**Supabase has to know the production URL**, or sign-in fails silently.
+**Authentication → URL Configuration**: set the Site URL, and add
+`https://<your-domain>/auth/callback` to the redirect list. For preview
+deployments too, add a wildcard such as
+`https://*-<your-team>.vercel.app/auth/callback`.
