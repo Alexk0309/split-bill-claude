@@ -49,7 +49,15 @@ export async function createBill(): Promise<never> {
     .select('id')
     .single();
 
-  if (error || !data) throw new Error(error?.message ?? 'Could not create the bill');
+  if (error || !data) {
+    // The quota is enforced by a trigger so it holds however the row is
+    // inserted; this turns its exception into something readable. The page
+    // normally hides the button before anyone gets here.
+    if (error?.message?.includes('BILL_QUOTA_REACHED')) {
+      redirect('/bills?limit=bills');
+    }
+    throw new Error(error?.message ?? 'Could not create the bill');
+  }
   revalidatePath('/bills');
   redirect(`/bills/${data.id}`);
 }

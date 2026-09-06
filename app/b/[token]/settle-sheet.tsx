@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 
 import { Banner, Money } from '@/components/ui';
 import { formatSen } from '@/lib/money';
+import { LIMIT_MESSAGES, PROOF_SCANS_PER_BILL } from '@/lib/limits';
 import { ImageDecodeError, downscaleToJpeg } from '@/lib/ocr/downscale';
 import type { PayeeInfo } from '@/lib/supabase/types';
 
@@ -61,6 +62,7 @@ export function SettleSheet({
   payee,
   settledAt,
   settledMethod,
+  proofScansUsed,
   onClose,
   onSettled,
 }: {
@@ -70,6 +72,7 @@ export function SettleSheet({
   payee: PayeeInfo | null;
   settledAt: string | null;
   settledMethod: string | null;
+  proofScansUsed: number;
   onClose: () => void;
   onSettled: () => void;
 }) {
@@ -119,6 +122,7 @@ export function SettleSheet({
 
   const settled = settledAt !== null;
   const busy = state.kind === 'working';
+  const checksGone = proofScansUsed >= PROOF_SCANS_PER_BILL;
 
   return (
     <div className="fixed inset-0 z-20 flex flex-col justify-end">
@@ -198,25 +202,31 @@ export function SettleSheet({
                 Send the confirmation screenshot and we will check it against what you owe.
               </p>
 
-              <input
-                ref={inputRef}
-                id="proof-file"
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                disabled={busy}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void onFile(file);
-                }}
-              />
-              <label
-                htmlFor="proof-file"
-                className="btn btn-primary w-full"
-                style={busy ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
-              >
-                {busy ? state.label : 'Upload transfer proof'}
-              </label>
+              {checksGone ? (
+                <Banner tone="info">{LIMIT_MESSAGES.proof}</Banner>
+              ) : (
+                <>
+                  <input
+                    ref={inputRef}
+                    id="proof-file"
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    disabled={busy}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void onFile(file);
+                    }}
+                  />
+                  <label
+                    htmlFor="proof-file"
+                    className="btn btn-primary w-full"
+                    style={busy ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                  >
+                    {busy ? state.label : 'Upload transfer proof'}
+                  </label>
+                </>
+              )}
 
               {state.kind === 'done' ? (
                 <div className="mt-3">

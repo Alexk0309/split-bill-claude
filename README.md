@@ -345,6 +345,41 @@ to one person; a test asserts it mentions nobody else and contains exactly one
 figure. The WhatsApp link carries no phone number — the payer picks the contact —
 so the app never stores a guest's number and cannot message anyone by itself.
 
+## Limits
+
+A free account gets **3 bills**, and each bill gets **5 receipt scans** and
+**15 proof checks**.
+
+**Deleting a bill does not give the allowance back.** What is metered is bills
+ever created, held as a monotonic counter on the profile rather than
+`count(*) from bills` — otherwise the limit is one delete away from meaningless.
+The message says so plainly, because trying a delete is the first thing anyone
+would do.
+
+The scan allowances are per bill and monotonic for the same reason: re-scanning
+is what costs money, whether or not the result was kept. They replaced an
+earlier rolling-hour throttle, which bounded bursts but not totals, and which
+could be reset by making a new bill or — for proofs — rejoining the bill under a
+new name.
+
+Both are spent through `consume_scan`, where the check and the increment are one
+statement, so two requests arriving together cannot both take the last one. The
+limit is passed in from `lib/limits.ts` rather than stored in the database, so
+the number shown to the user and the number enforced are the same constant.
+
+Nothing is ever a dead end. Out of receipt scans, items can still be typed in;
+out of proof checks, the payer can still mark people paid. Both fallbacks are
+free, and the messages name them.
+
+Sizing, roughly: a vision call is about five sen, so a free account's worst case
+is 3 × (5 + 15) = 60 calls, around RM3. That is the number to hold in mind when
+the paid tier gets priced.
+
+**Built for a paid tier.** The ceiling lives on `profiles.bill_quota` with a
+`plan` column beside it, so raising it for one account is an UPDATE, not a
+migration. Verified live: setting `bill_quota` higher lets a blocked account
+carry on immediately.
+
 ## Notes on the build
 
 - `@supabase/ssr` is used alongside `@supabase/supabase-js`. It is Supabase's own

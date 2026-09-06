@@ -536,6 +536,7 @@ export function ClaimPage({
           payee={payee}
           settledAt={myRow?.settled_at ?? null}
           settledMethod={myRow?.settled_method ?? null}
+          proofScansUsed={bundle.bill.proof_scans_used}
           onClose={() => setShowSettle(false)}
           onSettled={refresh}
         />

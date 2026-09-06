@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { deriveRates, reconcile } from '@/lib/ocr/reconcile';
-import { throttleReceiptScan } from '@/lib/ai/throttle';
+import { consumeScan } from '@/lib/ai/consume-scan';
 import { isSupportedMediaType, scanReceipt } from '@/lib/ocr/scan';
 import { createClient } from '@/lib/supabase/server';
 
@@ -54,9 +54,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ ok: false, message: 'Bill not found.' }, { status: 404 });
   }
 
-  const throttle = await throttleReceiptScan(supabase, billId);
-  if (!throttle.allowed) {
-    return NextResponse.json({ ok: false, message: throttle.message });
+  // Spent before the row is created and before the image is sent anywhere, so
+  // a refused scan costs nothing.
+  const allowance = await consumeScan(supabase, billId, 'receipt');
+  if (!allowance.allowed) {
+    return NextResponse.json({ ok: false, message: allowance.message });
   }
 
   const { data: receiptRow, error: insertError } = await supabase

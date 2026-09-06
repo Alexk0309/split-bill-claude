@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { Money, EmptyState } from '@/components/ui';
+import { Banner, Money, EmptyState, UsageCount } from '@/components/ui';
+import { FREE_BILL_QUOTA, LIMIT_MESSAGES, allowance } from '@/lib/limits';
 import { createClient } from '@/lib/supabase/server';
 import type { BillRow } from '@/lib/supabase/types';
 
@@ -34,11 +35,18 @@ export default async function BillsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data } = await supabase
-    .from('bills')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase.from('bills').select('*').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('bills_created, bill_quota').eq('id', user.id).maybeSingle(),
+  ]);
   const bills = (data ?? []) as BillRow[];
+
+  // Counted from bills ever created, not from how many still exist: deleting
+  // one does not give the allowance back.
+  const bill = allowance(
+    Number(profile?.bills_created ?? bills.length),
+    Number(profile?.bill_quota ?? FREE_BILL_QUOTA),
+  );
 
   return (
     <main className="mx-auto max-w-md px-5 pt-6 pb-28">
@@ -55,6 +63,10 @@ export default async function BillsPage() {
           </form>
         </span>
       </header>
+
+      <p className="mt-1">
+        <UsageCount used={bill.used} limit={bill.limit} noun="bill" />
+      </p>
 
       <div className="mt-5 space-y-2">
         {bills.length === 0 ? (
@@ -87,11 +99,17 @@ export default async function BillsPage() {
         className="fixed inset-x-0 bottom-0 border-t px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
         style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
       >
-        <form action={createBill} className="mx-auto max-w-md">
-          <button type="submit" className="btn btn-primary w-full">
-            New bill
-          </button>
-        </form>
+        {bill.exhausted ? (
+          <div className="mx-auto max-w-md">
+            <Banner tone="warn">{LIMIT_MESSAGES.bills}</Banner>
+          </div>
+        ) : (
+          <form action={createBill} className="mx-auto max-w-md">
+            <button type="submit" className="btn btn-primary w-full">
+              New bill
+            </button>
+          </form>
+        )}
       </div>
     </main>
   );

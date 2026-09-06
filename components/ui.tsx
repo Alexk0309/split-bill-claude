@@ -120,3 +120,76 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
     </div>
   );
 }
+
+/**
+ * How much of an allowance is left.
+ *
+ * Deliberately quiet until it matters: nothing is said while there is plenty,
+ * a plain count once it is worth knowing, and a warning tone only at the end.
+ * A meter that shouts from the first use just teaches people to ignore it.
+ */
+export function UsageMeter({
+  used,
+  limit,
+  noun,
+  pluralNoun,
+  /** Shown when the allowance is gone. Should name what still works. */
+  exhaustedNote,
+  /** Start showing the count once this many remain. */
+  quietUntilRemaining = 2,
+}: {
+  used: number;
+  limit: number;
+  noun: string;
+  pluralNoun?: string;
+  exhaustedNote?: string;
+  quietUntilRemaining?: number;
+}) {
+  const remaining = Math.max(0, limit - used);
+  const plural = pluralNoun ?? `${noun}s`;
+
+  if (remaining === 0) {
+    return (
+      <p
+        className="mt-2 text-[13px]"
+        style={{ color: 'var(--accent-strong)' }}
+        role="status"
+      >
+        <strong>No {plural} left.</strong>
+        {exhaustedNote ? ` ${exhaustedNote}` : null}
+      </p>
+    );
+  }
+
+  if (remaining > quietUntilRemaining) return null;
+
+  return (
+    <p className="mt-2 text-[13px]" style={{ color: 'var(--text-muted)' }} role="status">
+      {remaining} {remaining === 1 ? noun : plural} left
+    </p>
+  );
+}
+
+/** The always-visible form, for places where the count is the point. */
+export function UsageCount({
+  used,
+  limit,
+  noun,
+  pluralNoun,
+}: {
+  used: number;
+  limit: number;
+  noun: string;
+  pluralNoun?: string;
+}) {
+  const remaining = Math.max(0, limit - used);
+  const plural = pluralNoun ?? `${noun}s`;
+  return (
+    <span
+      className="tabular text-[13px]"
+      style={{ color: remaining === 0 ? 'var(--accent-strong)' : 'var(--text-muted)' }}
+    >
+      {used} of {limit} {plural} used
+    </span>
+  );
+}

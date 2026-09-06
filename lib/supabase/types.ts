@@ -18,6 +18,10 @@ export interface ProfileRow {
   duitnow_mobile: string | null;
   duitnow_qr_path: string | null;
   created_at: string;
+  /** Monotonic: deleting a bill does not decrement it. */
+  bills_created: number;
+  bill_quota: number;
+  plan: 'free' | 'paid';
 }
 
 export interface BillRow {
@@ -37,6 +41,8 @@ export interface BillRow {
   reminders_enabled: boolean;
   reminder_cadence: string;
   reminders_started_at: string | null;
+  receipt_scans_used: number;
+  proof_scans_used: number;
 }
 
 export interface BillItemRow {

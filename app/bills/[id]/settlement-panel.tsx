@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
-import { Avatar, Banner, Money } from '@/components/ui';
+import { Avatar, Banner, Money, UsageMeter } from '@/components/ui';
+import { PROOF_SCANS_PER_BILL } from '@/lib/limits';
 import { mismatchLabel, type MismatchReason } from '@/lib/settlement/proof';
 import type { SplitResult } from '@/lib/split';
 import type { ParticipantRow, PaymentProofRow } from '@/lib/supabase/types';
@@ -54,12 +55,14 @@ export function SettlementPanel({
   participants,
   proofs,
   hasDuitnowMobile,
+  proofScansUsed,
 }: {
   billId: string;
   split: SplitResult | null;
   participants: ParticipantRow[];
   proofs: PaymentProofRow[];
   hasDuitnowMobile: boolean;
+  proofScansUsed: number;
 }) {
   if (!split || participants.length === 0) return null;
 
@@ -161,6 +164,13 @@ export function SettlementPanel({
           );
         })}
       </div>
+
+      <UsageMeter
+        used={proofScansUsed}
+        limit={PROOF_SCANS_PER_BILL}
+        noun="proof check"
+        exhaustedNote={'Mark people paid by hand instead — that always works.'}
+      />
 
       <p className="mt-2 text-[14px]" style={{ color: 'var(--text-muted)' }}>
         {outstanding.length === 0 ? (

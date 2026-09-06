@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 
+import { UsageMeter } from '@/components/ui';
+import { LIMIT_MESSAGES, RECEIPT_SCANS_PER_BILL } from '@/lib/limits';
 import { ImageDecodeError, downscaleToJpeg } from '@/lib/ocr/downscale';
 import { createClient } from '@/lib/supabase/client';
 
@@ -14,7 +16,15 @@ const STAGE_LABEL: Record<Exclude<Stage, 'idle'>, string> = {
   scanning: 'Reading the receipt…',
 };
 
-export function ScanPanel({ billId, userId }: { billId: string; userId: string }) {
+export function ScanPanel({
+  billId,
+  userId,
+  scansUsed,
+}: {
+  billId: string;
+  userId: string;
+  scansUsed: number;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>('idle');
@@ -64,6 +74,7 @@ export function ScanPanel({ billId, userId }: { billId: string; userId: string }
   }
 
   const busy = stage !== 'idle';
+  const exhausted = scansUsed >= RECEIPT_SCANS_PER_BILL;
 
   return (
     <section className="card p-4">
@@ -81,7 +92,7 @@ export function ScanPanel({ billId, userId }: { billId: string; userId: string }
         capture="environment"
         className="sr-only"
         id="receipt-photo"
-        disabled={busy}
+        disabled={busy || exhausted}
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) void onFile(file);
@@ -90,11 +101,18 @@ export function ScanPanel({ billId, userId }: { billId: string; userId: string }
       <label
         htmlFor="receipt-photo"
         className="btn btn-secondary mt-3 w-full"
-        aria-disabled={busy}
-        style={busy ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+        aria-disabled={busy || exhausted}
+        style={busy || exhausted ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
       >
         {busy ? STAGE_LABEL[stage] : 'Take a photo'}
       </label>
+
+      <UsageMeter
+        used={scansUsed}
+        limit={RECEIPT_SCANS_PER_BILL}
+        noun="scan"
+        exhaustedNote={LIMIT_MESSAGES.receipt}
+      />
 
       {error ? (
         <p className="mt-3 text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">

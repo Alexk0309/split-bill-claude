@@ -96,7 +96,7 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
       <h1 className="mt-2 text-2xl font-bold tracking-tight text-balance">{heading}</h1>
 
       <div className="mt-5 space-y-6">
-        <ScanPanel billId={bill.id} userId={user.id} />
+        <ScanPanel billId={bill.id} userId={user.id} scansUsed={bill.receipt_scans_used} />
 
         <BillSettingsForm bill={bill} />
 
@@ -177,6 +177,7 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
           participants={participants}
           proofs={proofs}
           hasDuitnowMobile={Boolean(profile?.duitnow_mobile)}
+          proofScansUsed={bill.proof_scans_used}
         />
 
         <RemindersPanel

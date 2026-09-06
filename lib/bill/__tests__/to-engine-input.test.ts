@@ -25,6 +25,8 @@ function bundle(overrides: Partial<BillBundle> = {}): BillBundle {
       reminders_enabled: false,
       reminder_cadence: 'gentle',
       reminders_started_at: null,
+      receipt_scans_used: 0,
+      proof_scans_used: 0,
     },
     items: [],
     participants: [],
