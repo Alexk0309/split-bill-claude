@@ -378,7 +378,48 @@ the paid tier gets priced.
 **Built for a paid tier.** The ceiling lives on `profiles.bill_quota` with a
 `plan` column beside it, so raising it for one account is an UPDATE, not a
 migration. Verified live: setting `bill_quota` higher lets a blocked account
-carry on immediately.
+carry on immediately. A **null** `bill_quota` means no ceiling at all — spelled
+as an absence rather than a very large number, so nothing has to special-case
+`2147483647` when displaying it. The administrator's account is set that way in
+migration 0009.
+
+**Creating a bill is idempotent.** `public.create_bill` hands back the untouched
+draft an account already has instead of making a second one, under a per-account
+advisory lock so two simultaneous taps cannot both look, both find nothing, and
+both insert. This is not a nicety: one account created three bills at 04:09:18,
+04:09:20 and 04:09:21 — three taps on a button that gave no feedback — and used
+its entire lifetime allowance in three seconds. Verified live: five concurrent
+calls now produce one bill and charge the quota once.
+
+## Every CTA shows it is working
+
+A form posting to a server action takes a few hundred milliseconds during which
+nothing on screen changes. On a phone that is indistinguishable from a missed
+tap, so the reasonable thing to do is tap again — and every tap is another
+request. That is how the three-bills-in-three-seconds incident above happened.
+
+The rule, applied to every submit in the app:
+
+- `components/pending.tsx` exports `SubmitButton`, which reads `useFormStatus`
+  and goes `disabled` with a spinner and a verb in the present tense
+  (`Starting a bill…`, `Opening WhatsApp…`). `disabled` is the fix; the spinner
+  is the explanation. Neither works alone — without disabling the taps still
+  land, and without the spinner the button looks broken rather than busy.
+- Anything whose double-submit **costs** something is also made idempotent on
+  the server, because the client guard does not exist before hydration.
+- Destructive submits use `ConfirmButton`, which takes two taps and disarms
+  itself after five seconds. Inline, not `confirm()`: some in-app browsers
+  suppress native dialogs, and one on a phone is easier to dismiss by reflex
+  than to read.
+- Route transitions have `loading.tsx` skeletons. Every page here is
+  `force-dynamic`, so a navigation waits on the server, and the alternative is
+  the previous screen sitting unchanged — the same ambiguity in a different
+  place.
+- The spinner and skeleton animations are switched off under
+  `prefers-reduced-motion`, where the pending label and `aria-busy` carry the
+  meaning instead. The blanket "collapse every animation to 0.01ms" rule has to
+  be overridden for them specifically: applied to an infinitely repeating
+  animation it renders at full speed rather than stopping.
 
 ## Notes on the build
 

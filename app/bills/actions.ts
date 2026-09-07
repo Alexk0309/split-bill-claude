@@ -36,18 +36,21 @@ function refresh(billId: string) {
   revalidatePath('/bills');
 }
 
+/**
+ * Goes through an RPC rather than a plain insert so that tapping twice cannot
+ * produce two bills: `create_bill` hands back the untouched draft it already
+ * made instead of making another, under a per-account lock.
+ *
+ * That guard is on the server on purpose. The button disables itself while this
+ * runs, but that only works once the page has hydrated, and a bill spent by
+ * accident is not refundable.
+ */
 export async function createBill(): Promise<never> {
-  const { supabase, user } = await requireUser();
-  const { data, error } = await supabase
-    .from('bills')
-    .insert({
-      owner_id: user.id,
-      title: '',
-      service_charge_rate: DEFAULT_SERVICE_CHARGE_RATE,
-      service_tax_rate: DEFAULT_SERVICE_TAX_RATE,
-    })
-    .select('id')
-    .single();
+  const { supabase } = await requireUser();
+  const { data, error } = await supabase.rpc('create_bill', {
+    p_service_charge_rate: DEFAULT_SERVICE_CHARGE_RATE,
+    p_service_tax_rate: DEFAULT_SERVICE_TAX_RATE,
+  });
 
   if (error || !data) {
     // The quota is enforced by a trigger so it holds however the row is
@@ -59,7 +62,7 @@ export async function createBill(): Promise<never> {
     throw new Error(error?.message ?? 'Could not create the bill');
   }
   revalidatePath('/bills');
-  redirect(`/bills/${data.id}`);
+  redirect(`/bills/${data as string}`);
 }
 
 export async function updateBillDetails(

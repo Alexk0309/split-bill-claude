@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { Avatar, AvatarRow, Banner, Money } from '@/components/ui';
+import { Avatar, AvatarRow, Banner, Money, Skeleton } from '@/components/ui';
 import { readIdentity, writeIdentity } from '@/lib/bill/guest-identity';
 import { toBillInput } from '@/lib/bill/to-engine-input';
 import { formatRM } from '@/lib/money';
@@ -28,18 +28,24 @@ function NamePicker({
 }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  // Which chip was tapped, so the spinner lands on that name rather than on all
+  // of them. This is the first thing every guest does and it is a round trip;
+  // with no feedback at all, tapping again is the obvious move.
+  const [taking, setTaking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const supabase = useMemo(() => createGuestClient(shareToken), [shareToken]);
 
   async function take(participant: ParticipantRow) {
     setBusy(true);
+    setTaking(participant.id);
     setError(null);
     const { data, error: rpcError } = await supabase.rpc('claim_participant', {
       p_share_token: shareToken,
       p_participant_id: participant.id,
     });
     setBusy(false);
+    setTaking(null);
 
     const row = Array.isArray(data) ? data[0] : data;
     if (rpcError || !row) {
@@ -98,10 +104,22 @@ function NamePicker({
                 key={p.id}
                 type="button"
                 disabled={busy}
+                aria-busy={taking === p.id}
                 onClick={() => void take(p)}
                 className="card tap flex items-center gap-2 py-2 pr-3.5 pl-2.5"
+                // These are cards, not .btn, so the disabled styling that
+                // buttons get elsewhere does not apply to them.
+                style={busy ? { opacity: taking === p.id ? 1 : 0.45 } : undefined}
               >
-                <Avatar name={p.display_name} seed={p.id} size={24} />
+                {taking === p.id ? (
+                  <span
+                    className="spinner"
+                    aria-hidden="true"
+                    style={{ width: 24, height: 24, color: 'var(--accent)' }}
+                  />
+                ) : (
+                  <Avatar name={p.display_name} seed={p.id} size={24} />
+                )}
                 <span className="text-[15px] font-medium">{p.display_name}</span>
               </button>
             ))}
@@ -124,8 +142,20 @@ function NamePicker({
             onChange={(e) => setName(e.target.value)}
             required
           />
-          <button type="submit" className="btn btn-primary shrink-0" disabled={busy || !name.trim()}>
-            Continue
+          <button
+            type="submit"
+            className="btn btn-primary shrink-0"
+            disabled={busy || !name.trim()}
+            aria-busy={busy && taking === null}
+          >
+            {busy && taking === null ? (
+              <>
+                <span className="spinner" aria-hidden="true" />
+                Joining…
+              </>
+            ) : (
+              'Continue'
+            )}
           </button>
         </div>
       </form>
@@ -347,8 +377,23 @@ export function ClaimPage({
     return map;
   }, [bundle.claims, participantsById]);
 
+  // Identity lives in localStorage, which does not exist during server
+  // rendering, so there is always a beat before this page knows whether it is
+  // showing the name picker or the item list. It used to be blank -- on a slow
+  // phone that reads as a link that did not work.
   if (!ready) {
-    return <main className="mx-auto max-w-md px-5 py-10" aria-busy="true" />;
+    return (
+      <main className="mx-auto max-w-md px-5 pt-8 pb-10" aria-busy="true">
+        <span className="sr-only">Loading the bill…</span>
+        <Skeleton width="70%" height={28} />
+        <Skeleton className="mt-3" width="90%" height={15} />
+        <div className="mt-8 space-y-2">
+          <Skeleton height={64} className="rounded-2xl" />
+          <Skeleton height={64} className="rounded-2xl" />
+          <Skeleton height={64} className="rounded-2xl" />
+        </div>
+      </main>
+    );
   }
 
   if (!identity) {

@@ -1,3 +1,4 @@
+import { SubmitButton } from '@/components/pending';
 import { Avatar, Banner, Money } from '@/components/ui';
 import {
   CADENCE_LABELS,
@@ -111,9 +112,9 @@ export function RemindersPanel({
           Three nudges at most, ever. After that we stop asking.
         </p>
 
-        <button type="submit" className="btn btn-secondary mt-3 w-full">
+        <SubmitButton className="btn btn-secondary mt-3 w-full" pendingLabel="Saving…">
           Save
-        </button>
+        </SubmitButton>
       </form>
 
       {bill.reminders_enabled ? (
@@ -141,12 +142,12 @@ export function RemindersPanel({
                     <form action={sendNudge}>
                       <input type="hidden" name="billId" value={bill.id} />
                       <input type="hidden" name="participantId" value={person.id} />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="btn btn-primary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        pendingLabel="Opening WhatsApp…"
                       >
                         Send on WhatsApp
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
 
@@ -154,12 +155,12 @@ export function RemindersPanel({
                     <form action={snoozeReminder}>
                       <input type="hidden" name="billId" value={bill.id} />
                       <input type="hidden" name="participantId" value={person.id} />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="btn btn-secondary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        pendingLabel="Snoozing…"
                       >
                         Snooze 3 days
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
 
@@ -167,12 +168,9 @@ export function RemindersPanel({
                     <input type="hidden" name="billId" value={bill.id} />
                     <input type="hidden" name="participantId" value={person.id} />
                     <input type="hidden" name="muted" value={muted ? 'false' : 'true'} />
-                    <button
-                      type="submit"
-                      className="btn btn-ghost tap min-h-0 px-2 py-1.5 text-[14px]"
-                    >
+                    <SubmitButton className="btn btn-ghost tap min-h-0 px-2 py-1.5 text-[14px]">
                       {muted ? 'Unmute' : 'Never nudge'}
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </div>

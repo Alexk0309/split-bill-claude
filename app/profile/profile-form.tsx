@@ -1,21 +1,12 @@
 'use client';
 
 import { useActionState, useRef, useState } from 'react';
-import { useFormStatus } from 'react-dom';
 
+import { SubmitButton } from '@/components/pending';
 import { ImageDecodeError, downscaleToJpeg } from '@/lib/ocr/downscale';
 import { createClient } from '@/lib/supabase/client';
 
 import { removeQr, saveProfile, type ActionResult } from '../settlement-actions';
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className="btn btn-primary w-full" disabled={pending}>
-      {pending ? 'Saving…' : 'Save'}
-    </button>
-  );
-}
 
 export function ProfileForm({
   userId,
@@ -170,7 +161,9 @@ export function ProfileForm({
         </p>
       ) : null}
 
-      <SubmitButton />
+      <SubmitButton className="btn btn-primary w-full" pendingLabel="Saving…">
+        Save
+      </SubmitButton>
     </form>
   );
 }

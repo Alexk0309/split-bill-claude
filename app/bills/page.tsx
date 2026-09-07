@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { SubmitButton } from '@/components/pending';
 import { Banner, Money, EmptyState, UsageCount } from '@/components/ui';
 import { FREE_BILL_QUOTA, LIMIT_MESSAGES, allowance } from '@/lib/limits';
 import { createClient } from '@/lib/supabase/server';
@@ -43,10 +44,13 @@ export default async function BillsPage() {
 
   // Counted from bills ever created, not from how many still exist: deleting
   // one does not give the allowance back.
-  const bill = allowance(
-    Number(profile?.bills_created ?? bills.length),
-    Number(profile?.bill_quota ?? FREE_BILL_QUOTA),
-  );
+  //
+  // A null `bill_quota` means no ceiling, which has to be told apart from a
+  // missing profile row -- `?? FREE_BILL_QUOTA` alone would read an unlimited
+  // account as a free one that has already run out.
+  const quota =
+    profile == null ? FREE_BILL_QUOTA : profile.bill_quota === null ? null : Number(profile.bill_quota);
+  const bill = allowance(Number(profile?.bills_created ?? bills.length), quota);
 
   return (
     <main className="mx-auto max-w-md px-5 pt-6 pb-28">
@@ -57,9 +61,9 @@ export default async function BillsPage() {
             Payment details
           </Link>
           <form action="/auth/signout" method="post">
-            <button type="submit" className="btn btn-ghost tap px-2 text-[14px]">
+            <SubmitButton className="btn btn-ghost tap px-2 text-[14px]" pendingLabel="Signing out…">
               Sign out
-            </button>
+            </SubmitButton>
           </form>
         </span>
       </header>
@@ -105,9 +109,15 @@ export default async function BillsPage() {
           </div>
         ) : (
           <form action={createBill} className="mx-auto max-w-md">
-            <button type="submit" className="btn btn-primary w-full">
+            {/*
+              This button is why the whole pending-state pass happened. It used
+              to sit there unchanged while the action ran, so a slow response
+              looked like a missed tap, and every retry was another bill off a
+              quota that does not refund.
+            */}
+            <SubmitButton className="btn btn-primary w-full" pendingLabel="Starting a bill…">
               New bill
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>

@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useActionState, useMemo, useState } from 'react';
-import { useFormStatus } from 'react-dom';
 
+import { SubmitButton } from '@/components/pending';
 import { Banner, Money } from '@/components/ui';
 import { formatRateAsPercent } from '@/lib/bill/rates';
 import { formatSen, parseAmountToSen } from '@/lib/money';
@@ -23,15 +23,6 @@ const CONFIDENCE_NOTE: Record<ReceiptConfidence, string | null> = {
   medium: 'Some of this needed guessing. Worth a look before you send it.',
   low: 'This photo was hard to read. Check every line.',
 };
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className="btn btn-primary w-full" disabled={pending}>
-      {pending ? 'Saving…' : 'Use these items'}
-    </button>
-  );
-}
 
 /** Best-effort only, for the live totals; the server re-parses on submit. */
 function senOrNull(price: string): number | null {
@@ -285,7 +276,9 @@ export function ReceiptReview({
         ) : null}
 
         <div className="mt-6 space-y-2">
-          <SubmitButton />
+          <SubmitButton className="btn btn-primary w-full" pendingLabel="Saving…">
+            Use these items
+          </SubmitButton>
           <Link href={`/bills/${billId}`} className="btn btn-ghost w-full">
             Discard and type it in myself
           </Link>

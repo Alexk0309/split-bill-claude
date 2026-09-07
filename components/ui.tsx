@@ -178,12 +178,24 @@ export function UsageCount({
   pluralNoun,
 }: {
   used: number;
-  limit: number;
+  /** Null for an account with no ceiling. */
+  limit: number | null;
   noun: string;
   pluralNoun?: string;
 }) {
-  const remaining = Math.max(0, limit - used);
   const plural = pluralNoun ?? `${noun}s`;
+
+  // An account with no ceiling still gets a count, because the number is worth
+  // knowing; what it does not get is a fraction with nothing in the denominator.
+  if (limit === null) {
+    return (
+      <span className="tabular text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        {used} {used === 1 ? noun : plural} created · no limit
+      </span>
+    );
+  }
+
+  const remaining = Math.max(0, limit - used);
   return (
     <span
       className="tabular text-[13px]"
@@ -191,5 +203,42 @@ export function UsageCount({
     >
       {used} of {limit} {plural} used
     </span>
+  );
+}
+
+/**
+ * A placeholder in the shape of the content that is loading.
+ *
+ * Used on route transitions, where the alternative is an unchanged screen for
+ * as long as the server takes -- which is the same ambiguity a button with no
+ * pending state has: nothing on screen says a tap was received.
+ */
+export function Skeleton({
+  className = '',
+  width,
+  height = 16,
+}: {
+  className?: string;
+  width?: number | string;
+  height?: number | string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`skeleton block ${className}`}
+      style={{ width: width ?? '100%', height }}
+    />
+  );
+}
+
+/** A card-shaped placeholder, matching the rows these pages are made of. */
+export function SkeletonCard({ lines = 2 }: { lines?: number }) {
+  return (
+    <div className="card px-4 py-3.5">
+      <Skeleton width="55%" height={15} />
+      {Array.from({ length: lines - 1 }, (_, i) => (
+        <Skeleton key={i} className="mt-2" width={i === lines - 2 ? '35%' : '80%'} height={12} />
+      ))}
+    </div>
   );
 }

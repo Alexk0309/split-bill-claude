@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { SubmitButton } from '@/components/pending';
 import { Avatar, Banner, Money, UsageMeter } from '@/components/ui';
 import { PROOF_SCANS_PER_BILL } from '@/lib/limits';
 import { mismatchLabel, type MismatchReason } from '@/lib/settlement/proof';
@@ -129,9 +130,12 @@ export function SettlementPanel({
                   <form action={unmarkSettled}>
                     <input type="hidden" name="billId" value={billId} />
                     <input type="hidden" name="participantId" value={person.id} />
-                    <button type="submit" className="btn btn-ghost tap min-h-0 px-2 py-1.5 text-[14px]">
+                    <SubmitButton
+                      className="btn btn-ghost tap min-h-0 px-2 py-1.5 text-[14px]"
+                      pendingLabel="Undoing…"
+                    >
                       Undo
-                    </button>
+                    </SubmitButton>
                   </form>
                 ) : (
                   <>
@@ -139,23 +143,23 @@ export function SettlementPanel({
                       <input type="hidden" name="billId" value={billId} />
                       <input type="hidden" name="participantId" value={person.id} />
                       <input type="hidden" name="method" value="duitnow" />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="btn btn-secondary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        pendingLabel="Marking…"
                       >
                         Mark paid
-                      </button>
+                      </SubmitButton>
                     </form>
                     <form action={markSettled}>
                       <input type="hidden" name="billId" value={billId} />
                       <input type="hidden" name="participantId" value={person.id} />
                       <input type="hidden" name="method" value="cash" />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="btn btn-secondary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        pendingLabel="Marking…"
                       >
                         Paid cash
-                      </button>
+                      </SubmitButton>
                     </form>
                   </>
                 )}

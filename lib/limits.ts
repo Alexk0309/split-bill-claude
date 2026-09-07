@@ -18,7 +18,7 @@
  * Which is the number to have in mind when the paid tier gets priced.
  *
  * Raising a limit for one account is an UPDATE on `profiles.bill_quota`, not a
- * migration. The per-bill scan limits are here rather than in the database so
+ * migration, and a null there means no ceiling at all. The per-bill scan limits are here rather than in the database so
  * that the number shown to the user and the number enforced are the same
  * constant; `consume_scan` takes the limit as an argument for exactly that
  * reason.
@@ -49,18 +49,32 @@ export const SCAN_LIMITS: Record<ScanKind, number> = {
 
 export interface Allowance {
   used: number;
-  limit: number;
-  remaining: number;
+  /** Null when there is no ceiling. */
+  limit: number | null;
+  /** Null when there is no ceiling -- not Infinity, which formats badly. */
+  remaining: number | null;
   exhausted: boolean;
+  unlimited: boolean;
 }
 
-export function allowance(used: number, limit: number): Allowance {
-  const clamped = Math.max(0, Math.min(used, limit));
+/**
+ * A null limit is unlimited rather than zero. That distinction matters: read the
+ * other way round, an account with no ceiling would be told it had none left.
+ */
+export function allowance(used: number, limit: number | null): Allowance {
+  const counted = Math.max(0, used);
+
+  if (limit === null) {
+    return { used: counted, limit: null, remaining: null, exhausted: false, unlimited: true };
+  }
+
+  const clamped = Math.min(counted, limit);
   return {
     used: clamped,
     limit,
     remaining: limit - clamped,
     exhausted: clamped >= limit,
+    unlimited: false,
   };
 }
 

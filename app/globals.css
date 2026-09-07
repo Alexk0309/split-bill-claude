@@ -176,6 +176,53 @@ button {
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+
+  /*
+   * Feedback for a tap that is waiting on the network. The label beside it
+   * carries the meaning; this is here so the wait is visible at a glance,
+   * because a button that looks idle while it works invites a second tap.
+   */
+  .spinner {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  /* The shape of the content that is coming, so a page load does not read as
+     a blank screen. */
+  .skeleton {
+    background: var(--surface-sunk);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--border) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    border-radius: 0.5rem;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -184,5 +231,21 @@ button {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /*
+   * The blanket rule above collapses every animation to nothing, which for an
+   * infinitely repeating one means it renders at maximum speed rather than
+   * stopping -- a spinner becomes a blur. These two need to actually stand
+   * still, so they override it. The pending label and the aria-busy state
+   * carry the meaning in that case, which is the better signal anyway.
+   */
+  .spinner,
+  .skeleton {
+    animation: none !important;
+  }
+
+  .skeleton {
+    background-image: none;
   }
 }

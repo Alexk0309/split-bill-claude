@@ -1,8 +1,8 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { useFormStatus } from 'react-dom';
 
+import { SubmitButton } from '@/components/pending';
 import { Avatar, Money } from '@/components/ui';
 import { formatRateAsPercent } from '@/lib/bill/rates';
 import type { BillItemRow, BillRow, ParticipantRow } from '@/lib/supabase/types';
@@ -15,23 +15,6 @@ import {
   updateBillDetails,
   type ActionResult,
 } from '../actions';
-
-function SubmitButton({
-  children,
-  className = 'btn btn-primary',
-  pendingLabel,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  pendingLabel?: string;
-}) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className={className} disabled={pending}>
-      {pending && pendingLabel ? pendingLabel : children}
-    </button>
-  );
-}
 
 function ErrorText({ state }: { state: ActionResult | undefined }) {
   if (!state || state.ok) return null;

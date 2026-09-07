@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
+import { ConfirmButton, SubmitButton } from '@/components/pending';
 import { Avatar, Banner, Money } from '@/components/ui';
 import { loadOwnerBill } from '@/lib/bill/load';
 import { toBillInput } from '@/lib/bill/to-engine-input';
@@ -190,17 +191,22 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
         {bill.status === 'draft' ? (
           <form action={openBill}>
             <input type="hidden" name="billId" value={bill.id} />
-            <button type="submit" className="btn btn-secondary w-full">
+            <SubmitButton className="btn btn-secondary w-full" pendingLabel="Opening…">
               Mark as open for claiming
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
 
+        {/*
+          Two taps, because this one cannot be undone and does not hand the
+          allowance back -- and it sits at the bottom of a column of ordinary
+          buttons, which is exactly where a thumb ends up.
+        */}
         <form action={deleteBill} className="pt-2">
           <input type="hidden" name="billId" value={bill.id} />
-          <button type="submit" className="btn btn-ghost w-full text-[14px]">
+          <ConfirmButton confirmLabel="Yes, delete it" pendingLabel="Deleting…">
             Delete this bill
-          </button>
+          </ConfirmButton>
         </form>
       </div>
     </main>
