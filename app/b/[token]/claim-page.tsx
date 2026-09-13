@@ -6,6 +6,7 @@ import { Avatar, AvatarRow, Banner, Money, Skeleton } from '@/components/ui';
 import { readIdentity, writeIdentity } from '@/lib/bill/guest-identity';
 import { toBillInput } from '@/lib/bill/to-engine-input';
 import { formatRM } from '@/lib/money';
+import { needsAttention, settlementDrift } from '@/lib/settlement/drift';
 import { computeSplit, type PersonBreakdown, type SplitResult } from '@/lib/split';
 import { createGuestClient } from '@/lib/supabase/guest';
 import type { BillBundle, GuestIdentity, ParticipantRow, PayeeInfo } from '@/lib/supabase/types';
@@ -81,6 +82,7 @@ function NamePicker({
         display_name: trimmed,
         settled_at: null,
         settled_method: null,
+        settled_amount_sen: null,
         created_at: new Date().toISOString(),
       },
     );
@@ -414,6 +416,10 @@ export function ClaimPage({
   const unclaimedCount = split?.unclaimedItems.length ?? 0;
   const myRow = participantsById.get(identity.participantId) ?? null;
   const isSettled = Boolean(myRow?.settled_at);
+  // A share keeps moving while other people are still claiming, so "Paid" can
+  // stop being the whole truth after it is earned.
+  const settlementIsOff =
+    isSettled && needsAttention(settlementDrift(myRow?.settled_amount_sen, me?.amountDueSen ?? 0));
 
   return (
     <>
@@ -550,12 +556,21 @@ export function ClaimPage({
           </button>
 
           {isSettled ? (
-            <span
-              className="shrink-0 rounded-xl px-3 py-2 text-[14px] font-semibold"
-              style={{ background: 'var(--good-wash)', color: 'var(--good)' }}
+            // A button rather than a label: once settled there was previously no
+            // way back into the sheet at all, so somebody whose share had moved
+            // could not read why.
+            <button
+              type="button"
+              onClick={() => setShowSettle(true)}
+              className="tap shrink-0 rounded-xl px-3 py-2 text-[14px] font-semibold"
+              style={
+                settlementIsOff
+                  ? { background: 'var(--accent-wash-strong)', color: 'var(--accent-strong)' }
+                  : { background: 'var(--good-wash)', color: 'var(--good)' }
+              }
             >
-              Paid
-            </span>
+              {settlementIsOff ? 'Check this' : 'Paid'}
+            </button>
           ) : (
             <button
               type="button"
@@ -581,6 +596,7 @@ export function ClaimPage({
           payee={payee}
           settledAt={myRow?.settled_at ?? null}
           settledMethod={myRow?.settled_method ?? null}
+          settledAmountSen={myRow?.settled_amount_sen ?? null}
           proofScansUsed={bundle.bill.proof_scans_used}
           onClose={() => setShowSettle(false)}
           onSettled={refresh}

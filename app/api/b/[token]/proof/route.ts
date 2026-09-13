@@ -144,7 +144,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // figures behind it were read here rather than sent by them.
     await admin
       .from('participants')
-      .update({ settled_at: new Date().toISOString(), settled_method: 'duitnow' })
+      .update({
+        settled_at: new Date().toISOString(),
+        settled_method: 'duitnow',
+        // What actually moved, not what was expected. A match means the two are
+        // equal today; recording it is what lets a later change to this
+        // person's share be noticed rather than silently overwriting the debt.
+        settled_amount_sen: scanned.proof.amount_sen,
+      })
       .eq('id', participantId)
       .eq('bill_id', billId);
   }

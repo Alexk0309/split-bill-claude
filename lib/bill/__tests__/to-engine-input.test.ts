@@ -43,6 +43,7 @@ const participant = (id: string, name: string) => ({
   display_name: name,
   settled_at: null,
   settled_method: null,
+  settled_amount_sen: null,
   created_at: AT,
 });
 

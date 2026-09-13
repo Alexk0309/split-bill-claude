@@ -60,6 +60,12 @@ export interface ParticipantRow {
   display_name: string;
   settled_at: string | null;
   settled_method: SettledMethod | null;
+  /**
+   * What they settled for, in sen. Null when not settled, or when settled
+   * before this was recorded. Shares move while a bill is open, so this is the
+   * only way to tell afterwards whether a transfer still covers the debt.
+   */
+  settled_amount_sen: number | null;
   created_at: string;
 }
 

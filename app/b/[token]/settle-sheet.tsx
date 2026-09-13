@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 
 import { Banner, Money } from '@/components/ui';
 import { formatSen } from '@/lib/money';
+import { needsAttention, settlementDrift } from '@/lib/settlement/drift';
 import { LIMIT_MESSAGES, PROOF_SCANS_PER_BILL } from '@/lib/limits';
 import { ImageDecodeError, downscaleToJpeg } from '@/lib/ocr/downscale';
 import type { PayeeInfo } from '@/lib/supabase/types';
@@ -62,6 +63,7 @@ export function SettleSheet({
   payee,
   settledAt,
   settledMethod,
+  settledAmountSen,
   proofScansUsed,
   onClose,
   onSettled,
@@ -72,6 +74,8 @@ export function SettleSheet({
   payee: PayeeInfo | null;
   settledAt: string | null;
   settledMethod: string | null;
+  /** What they actually paid, so a share that has moved since can be spotted. */
+  settledAmountSen: number | null;
   proofScansUsed: number;
   onClose: () => void;
   onSettled: () => void;
@@ -122,6 +126,14 @@ export function SettleSheet({
 
   const settled = settledAt !== null;
   const busy = state.kind === 'working';
+
+  // Their share is divided by however many people have claimed each item so
+  // far, so it can move after they have paid -- most often downwards, when the
+  // rest of the table finally taps the dish they shared. Telling somebody
+  // "nothing more to do" while they are fifty ringgit up is the one thing this
+  // screen must not do.
+  const drift = settlementDrift(settledAmountSen, amountSen);
+  const drifted = needsAttention(drift);
   const checksGone = proofScansUsed >= PROOF_SCANS_PER_BILL;
 
   return (
@@ -142,10 +154,34 @@ export function SettleSheet({
         <h2 className="text-lg font-bold">Settle up</h2>
 
         {settled ? (
-          <div className="mt-4">
-            <Banner tone="good">
-              Marked as paid{settledMethod === 'cash' ? ' in cash' : ''}. Nothing more to do.
-            </Banner>
+          <div className="mt-4 space-y-3">
+            {drifted ? (
+              <>
+                <Banner tone="warn">
+                  {drift.kind === 'overpaid' ? (
+                    <>
+                      You paid <Money sen={settledAmountSen ?? 0} />, and your share has since
+                      fallen to <Money sen={amountSen} /> because more people claimed what you
+                      shared. <strong><Money sen={drift.deltaSen} /> is owed back to you.</strong>
+                    </>
+                  ) : (
+                    <>
+                      You paid <Money sen={settledAmountSen ?? 0} />, and your share has since
+                      risen to <Money sen={amountSen} />.{' '}
+                      <strong><Money sen={-drift.deltaSen} /> is still to go.</strong>
+                    </>
+                  )}
+                </Banner>
+                <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>
+                  {payee?.display_name ?? 'The person who paid'} can see this too — sort it out
+                  with them directly. Nothing here moves money.
+                </p>
+              </>
+            ) : (
+              <Banner tone="good">
+                Marked as paid{settledMethod === 'cash' ? ' in cash' : ''}. Nothing more to do.
+              </Banner>
+            )}
           </div>
         ) : (
           <>

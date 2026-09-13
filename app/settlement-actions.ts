@@ -88,6 +88,15 @@ export async function removeQr(): Promise<void> {
  * Blunt on purpose: the app cannot see anyone's bank account, so when there is
  * no proof to read, the person who is owed the money decides.
  */
+/**
+ * Records what the payer says they have received.
+ *
+ * The amount is captured here rather than left implied, because the share it
+ * was based on will keep moving: an item is divided by however many people have
+ * claimed it so far, so somebody tapping a shared dish later changes what this
+ * person owed. Without the figure at the time, that drift is undetectable and
+ * the row just says "Paid" forever.
+ */
 export async function markSettled(formData: FormData): Promise<void> {
   const { supabase } = await requireUser();
   const billId = text(formData, 'billId');
@@ -95,11 +104,27 @@ export async function markSettled(formData: FormData): Promise<void> {
   const method = text(formData, 'method');
   if (!billId || !participantId) return;
 
+  // What they owe at this moment, which is what marking them paid asserts they
+  // handed over. Left null if the bill does not currently add up -- an
+  // unrecorded amount is honest, a wrong one is not.
+  let settledAmountSen: number | null = null;
+  const bundle = await loadOwnerBill(supabase, billId);
+  if (bundle) {
+    try {
+      const split = computeSplit(toBillInput(bundle));
+      settledAmountSen =
+        split.people.find((person) => person.personId === participantId)?.amountDueSen ?? null;
+    } catch {
+      settledAmountSen = null;
+    }
+  }
+
   await supabase
     .from('participants')
     .update({
       settled_at: new Date().toISOString(),
       settled_method: method === 'cash' ? 'cash' : method === 'duitnow' ? 'duitnow' : 'other',
+      settled_amount_sen: settledAmountSen,
     })
     .eq('id', participantId)
     .eq('bill_id', billId);
@@ -116,7 +141,7 @@ export async function unmarkSettled(formData: FormData): Promise<void> {
 
   await supabase
     .from('participants')
-    .update({ settled_at: null, settled_method: null })
+    .update({ settled_at: null, settled_method: null, settled_amount_sen: null })
     .eq('id', participantId)
     .eq('bill_id', billId);
 

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { SubmitButton } from '@/components/pending';
 import { Avatar, Banner, Money, UsageMeter } from '@/components/ui';
 import { PROOF_SCANS_PER_BILL } from '@/lib/limits';
+import { needsAttention, settlementDrift, type SettlementDrift } from '@/lib/settlement/drift';
 import { mismatchLabel, type MismatchReason } from '@/lib/settlement/proof';
 import type { SplitResult } from '@/lib/split';
 import type { ParticipantRow, PaymentProofRow } from '@/lib/supabase/types';
@@ -50,6 +51,48 @@ function ProofNote({ proof }: { proof: PaymentProofRow }) {
   );
 }
 
+/**
+ * A settled person whose share has moved since they paid.
+ *
+ * Shares are provisional while a bill is open: an item is divided by however
+ * many people have claimed it *so far*, so the third and fourth person to tap a
+ * shared dish halve what the first two owed. Somebody who paid in between is
+ * out of pocket through nobody's mistake.
+ *
+ * Before this existed the row simply said "Paid" beside a figure that
+ * contradicted it, and neither side was told. Stated plainly here, with the
+ * amount to hand back, because the payer is the only one holding the money.
+ */
+function DriftNote({
+  drift,
+  paidSen,
+  dueSen,
+}: {
+  drift: SettlementDrift;
+  paidSen: number;
+  dueSen: number;
+}) {
+  const over = drift.kind === 'overpaid';
+  return (
+    <div
+      className="mt-2 rounded-lg px-3 py-2 text-[13px]"
+      style={{ background: 'var(--accent-wash)', color: 'var(--accent-strong)' }}
+    >
+      <span className="font-semibold">
+        {over ? (
+          <>Return <Money sen={drift.deltaSen} /></>
+        ) : (
+          <><Money sen={-drift.deltaSen} /> still short</>
+        )}
+      </span>
+      <span className="mt-0.5 block" style={{ color: 'var(--text-muted)' }}>
+        Paid <Money sen={paidSen} />, and their share {over ? 'fell' : 'rose'} to{' '}
+        <Money sen={dueSen} /> after the bill changed.
+      </span>
+    </div>
+  );
+}
+
 export function SettlementPanel({
   billId,
   split,
@@ -77,6 +120,15 @@ export function SettlementPanel({
   const outstanding = participants.filter((p) => !p.settled_at && (dueById.get(p.id) ?? 0) > 0);
   const outstandingSen = outstanding.reduce((acc, p) => acc + (dueById.get(p.id) ?? 0), 0);
 
+  // People who paid before their share moved. "Everyone has settled up" is not
+  // true while somebody is owed money back, so this has to be counted here and
+  // not only shown row by row.
+  const owedBack = participants
+    .filter((p) => p.settled_at)
+    .map((p) => settlementDrift(p.settled_amount_sen, dueById.get(p.id) ?? 0))
+    .filter((d) => d.kind === 'overpaid');
+  const owedBackSen = owedBack.reduce((acc, d) => acc + d.deltaSen, 0);
+
   return (
     <section>
       <h2 className="mb-2 text-[15px] font-semibold">Who has paid</h2>
@@ -98,15 +150,22 @@ export function SettlementPanel({
           const dueSen = dueById.get(person.id) ?? 0;
           const proof = latestProof.get(person.id);
           const settled = Boolean(person.settled_at);
+          // Only meaningful once settled; an unsettled person has not paid
+          // anything to be out of step with.
+          const drift = settlementDrift(person.settled_amount_sen, dueSen);
+          const drifted = settled && needsAttention(drift);
 
           return (
             <div key={person.id} className="px-4 py-3">
               <div className="flex items-center gap-2">
-                <Avatar name={person.display_name} seed={person.id} size={26} dimmed={settled} />
+                <Avatar name={person.display_name} seed={person.id} size={26} dimmed={settled && !drifted} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{person.display_name}</span>
                   {settled ? (
-                    <span className="text-[13px]" style={{ color: 'var(--good)' }}>
+                    <span
+                      className="text-[13px]"
+                      style={{ color: drifted ? 'var(--accent-strong)' : 'var(--good)' }}
+                    >
                       Paid
                       {person.settled_method === 'cash'
                         ? ' in cash'
@@ -124,6 +183,14 @@ export function SettlementPanel({
               </div>
 
               {proof ? <ProofNote proof={proof} /> : null}
+
+              {drifted ? (
+                <DriftNote
+                  drift={drift}
+                  paidSen={person.settled_amount_sen ?? 0}
+                  dueSen={dueSen}
+                />
+              ) : null}
 
               <div className="mt-2 flex flex-wrap gap-2">
                 {settled ? (
@@ -178,10 +245,24 @@ export function SettlementPanel({
 
       <p className="mt-2 text-[14px]" style={{ color: 'var(--text-muted)' }}>
         {outstanding.length === 0 ? (
-          'Everyone has settled up.'
+          owedBackSen === 0 ? (
+            'Everyone has settled up.'
+          ) : (
+            <>
+              Everyone has paid, but <Money sen={owedBackSen} /> needs to go back to{' '}
+              {owedBack.length === 1 ? 'somebody' : `${owedBack.length} people`} whose share fell
+              after they paid.
+            </>
+          )
         ) : (
           <>
             {outstanding.length} still to pay, <Money sen={outstandingSen} /> outstanding.
+            {owedBackSen > 0 ? (
+              <>
+                {' '}
+                <Money sen={owedBackSen} /> to give back.
+              </>
+            ) : null}
           </>
         )}
       </p>

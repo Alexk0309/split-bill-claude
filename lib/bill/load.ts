@@ -19,7 +19,8 @@ import type {
  *
  * The payer holds full privileges and reads any extra columns separately.
  */
-const GUEST_PARTICIPANT_COLUMNS = 'id, bill_id, display_name, settled_at, settled_method, created_at';
+const GUEST_PARTICIPANT_COLUMNS =
+  'id, bill_id, display_name, settled_at, settled_method, settled_amount_sen, created_at';
 
 /**
  * Loads everything a bill needs in one round trip per table.
