@@ -30,7 +30,7 @@ function ProofNote({ proof }: { proof: PaymentProofRow }) {
   const reason = proof.mismatch_reason as MismatchReason | null;
   return (
     <div
-      className="mt-2 rounded-lg px-3 py-2 text-[13px]"
+      className="type-footnote mt-2.5 rounded-xl px-3 py-2"
       style={{
         background: proof.matched ? 'var(--good-wash)' : 'var(--accent-wash)',
         color: proof.matched ? 'var(--good)' : 'var(--accent-strong)',
@@ -75,7 +75,7 @@ function DriftNote({
   const over = drift.kind === 'overpaid';
   return (
     <div
-      className="mt-2 rounded-lg px-3 py-2 text-[13px]"
+      className="type-footnote mt-2.5 rounded-xl px-3 py-2"
       style={{ background: 'var(--accent-wash)', color: 'var(--accent-strong)' }}
     >
       <span className="font-semibold">
@@ -131,7 +131,7 @@ export function SettlementPanel({
 
   return (
     <section>
-      <h2 className="mb-2 text-[15px] font-semibold">Who has paid</h2>
+      <h2 className="group-label">Who has paid</h2>
 
       {!hasDuitnowMobile ? (
         <div className="mb-2">
@@ -145,7 +145,7 @@ export function SettlementPanel({
         </div>
       ) : null}
 
-      <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
+      <div className="list">
         {participants.map((person) => {
           const dueSen = dueById.get(person.id) ?? 0;
           const proof = latestProof.get(person.id);
@@ -160,10 +160,12 @@ export function SettlementPanel({
               <div className="flex items-center gap-2">
                 <Avatar name={person.display_name} seed={person.id} size={26} dimmed={settled && !drifted} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{person.display_name}</span>
+                  <span className="type-callout block truncate font-medium">
+                    {person.display_name}
+                  </span>
                   {settled ? (
                     <span
-                      className="text-[13px]"
+                      className="type-footnote"
                       style={{ color: drifted ? 'var(--accent-strong)' : 'var(--good)' }}
                     >
                       Paid
@@ -174,12 +176,12 @@ export function SettlementPanel({
                           : ''}
                     </span>
                   ) : (
-                    <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                    <span className="type-footnote" style={{ color: 'var(--text-muted)' }}>
                       Owes <Money sen={dueSen} />
                     </span>
                   )}
                 </span>
-                <Money sen={dueSen} className="shrink-0 font-semibold" />
+                <Money sen={dueSen} className="type-headline shrink-0" />
               </div>
 
               {proof ? <ProofNote proof={proof} /> : null}
@@ -192,13 +194,13 @@ export function SettlementPanel({
                 />
               ) : null}
 
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 {settled ? (
                   <form action={unmarkSettled}>
                     <input type="hidden" name="billId" value={billId} />
                     <input type="hidden" name="participantId" value={person.id} />
                     <SubmitButton
-                      className="btn btn-ghost tap min-h-0 px-2 py-1.5 text-[14px]"
+                      className="btn btn-ghost tap type-subhead min-h-0 px-2 py-1.5"
                       pendingLabel="Undoing…"
                     >
                       Undo
@@ -211,7 +213,7 @@ export function SettlementPanel({
                       <input type="hidden" name="participantId" value={person.id} />
                       <input type="hidden" name="method" value="duitnow" />
                       <SubmitButton
-                        className="btn btn-secondary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        className="btn btn-secondary tap type-subhead min-h-0 px-3 py-1.5"
                         pendingLabel="Marking…"
                       >
                         Mark paid
@@ -222,7 +224,7 @@ export function SettlementPanel({
                       <input type="hidden" name="participantId" value={person.id} />
                       <input type="hidden" name="method" value="cash" />
                       <SubmitButton
-                        className="btn btn-secondary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        className="btn btn-secondary tap type-subhead min-h-0 px-3 py-1.5"
                         pendingLabel="Marking…"
                       >
                         Paid cash
@@ -243,7 +245,7 @@ export function SettlementPanel({
         exhaustedNote={'Mark people paid by hand instead — that always works.'}
       />
 
-      <p className="mt-2 text-[14px]" style={{ color: 'var(--text-muted)' }}>
+      <p className="type-subhead mt-2.5" style={{ color: 'var(--text-muted)' }}>
         {outstanding.length === 0 ? (
           owedBackSen === 0 ? (
             'Everyone has settled up.'

@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { Sheet, SheetClose } from '@/components/sheet';
 import { Avatar, AvatarRow, Banner, Money, Skeleton } from '@/components/ui';
 import { readIdentity, writeIdentity } from '@/lib/bill/guest-identity';
 import { toBillInput } from '@/lib/bill/to-engine-input';
 import { formatRM } from '@/lib/money';
+import { haptic } from '@/lib/motion/feedback';
 import { needsAttention, settlementDrift } from '@/lib/settlement/drift';
 import { computeSplit, type PersonBreakdown, type SplitResult } from '@/lib/split';
 import { createGuestClient } from '@/lib/supabase/guest';
@@ -89,17 +91,17 @@ function NamePicker({
   }
 
   return (
-    <main className="mx-auto max-w-md px-5 pt-8 pb-10">
-      <h1 className="text-2xl font-bold tracking-tight text-balance">
+    <main className="mx-auto max-w-md px-5 pt-10 pb-10">
+      <h1 className="type-title text-balance">
         {bundle.bill.venue ? `Bill from ${bundle.bill.venue}` : 'Split this bill'}
       </h1>
-      <p className="mt-2 text-[15px]" style={{ color: 'var(--text-muted)' }}>
+      <p className="type-body mt-2" style={{ color: 'var(--text-muted)' }}>
         Who are you? This stays on your phone — no sign-up, no app.
       </p>
 
       {bundle.participants.length > 0 ? (
-        <div className="mt-6">
-          <h2 className="label">Tap your name</h2>
+        <div className="mt-8">
+          <h2 className="group-label">Tap your name</h2>
           <div className="flex flex-wrap gap-2">
             {bundle.participants.map((p) => (
               <button
@@ -108,10 +110,11 @@ function NamePicker({
                 disabled={busy}
                 aria-busy={taking === p.id}
                 onClick={() => void take(p)}
-                className="card tap flex items-center gap-2 py-2 pr-3.5 pl-2.5"
+                data-press="button"
+                className="card tap flex items-center gap-2 py-2 pr-4 pl-2.5"
                 // These are cards, not .btn, so the disabled styling that
                 // buttons get elsewhere does not apply to them.
-                style={busy ? { opacity: taking === p.id ? 1 : 0.45 } : undefined}
+                style={busy ? { opacity: taking === p.id ? 1 : 0.4 } : undefined}
               >
                 {taking === p.id ? (
                   <span
@@ -122,14 +125,14 @@ function NamePicker({
                 ) : (
                   <Avatar name={p.display_name} seed={p.id} size={24} />
                 )}
-                <span className="text-[15px] font-medium">{p.display_name}</span>
+                <span className="type-callout font-medium">{p.display_name}</span>
               </button>
             ))}
           </div>
         </div>
       ) : null}
 
-      <form onSubmit={join} className="mt-6">
+      <form onSubmit={join} className="mt-8">
         <label className="label" htmlFor="guest-name">
           {bundle.participants.length > 0 ? 'Not listed? Add yourself' : 'Your name'}
         </label>
@@ -146,6 +149,7 @@ function NamePicker({
           />
           <button
             type="submit"
+            data-press="button"
             className="btn btn-primary shrink-0"
             disabled={busy || !name.trim()}
             aria-busy={busy && taking === null}
@@ -163,7 +167,7 @@ function NamePicker({
       </form>
 
       {error ? (
-        <p className="mt-3 text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">
+        <p className="type-subhead mt-3" style={{ color: 'var(--accent-strong)' }} role="alert">
           {error}
         </p>
       ) : null}
@@ -191,7 +195,7 @@ function ConnectionNote({ status, queued }: { status: SyncStatus; queued: number
 
   return (
     <p
-      className="mt-3 flex items-center gap-2 text-[13px]"
+      className="type-footnote mt-2 flex items-center gap-2"
       style={{ color: 'var(--text-muted)' }}
       role="status"
       aria-live="polite"
@@ -199,7 +203,7 @@ function ConnectionNote({ status, queued }: { status: SyncStatus; queued: number
       <span
         aria-hidden="true"
         className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ background: status === 'offline' ? 'var(--accent)' : 'var(--text-muted)' }}
+        style={{ background: status === 'offline' ? 'var(--accent)' : 'var(--text-faint)' }}
       />
       {label}
     </p>
@@ -235,87 +239,75 @@ function BreakdownSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col justify-end">
-      <button
-        type="button"
-        aria-label="Close breakdown"
-        onClick={onClose}
-        className="absolute inset-0"
-        style={{ background: 'rgb(0 0 0 / 0.4)' }}
-      />
-      <div
-        className="relative max-h-[80dvh] overflow-y-auto rounded-t-2xl px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
-        style={{ background: 'var(--surface)' }}
-        role="dialog"
-        aria-label="Your breakdown"
-      >
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-bold">Your share</h2>
-          <Money sen={person.amountDueSen} className="text-lg font-bold" />
+    <Sheet
+      label="Your breakdown"
+      onClose={onClose}
+      heading={
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="type-title-2">Your share</h2>
+          <Money sen={person.amountDueSen} className="type-title-2" />
         </div>
-
-        {person.itemLines.length > 0 ? (
-          <ul className="mt-4 space-y-1.5 text-[15px]">
-            {person.itemLines.map((line) => (
-              <li key={line.itemId} className="flex justify-between gap-3">
-                <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--text-muted)' }}>
-                  {line.name}
-                  {line.claimantCount > 1 ? (
-                    <span className="text-[13px]"> ÷ {line.claimantCount}</span>
-                  ) : null}
-                </span>
-                <Money sen={line.displayShareSen} />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-4 text-[15px]" style={{ color: 'var(--text-muted)' }}>
-            You have not claimed anything yet.
-          </p>
-        )}
-
-        <dl
-          className="mt-4 space-y-1.5 border-t pt-4 text-[15px]"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          {rows.map((row) => (
-            <div key={row.label} className="flex justify-between gap-3">
-              <dt style={{ color: 'var(--text-muted)' }}>{row.label}</dt>
-              <dd>
-                <Money sen={row.sen} />
-              </dd>
-            </div>
+      }
+    >
+      {person.itemLines.length > 0 ? (
+        <ul className="type-callout mt-3 space-y-2">
+          {person.itemLines.map((line) => (
+            <li key={line.itemId} className="flex justify-between gap-3">
+              <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--text-muted)' }}>
+                {line.name}
+                {line.claimantCount > 1 ? (
+                  <span className="type-footnote"> ÷ {line.claimantCount}</span>
+                ) : null}
+              </span>
+              <Money sen={line.displayShareSen} />
+            </li>
           ))}
-          <div
-            className="flex justify-between border-t pt-2 font-semibold"
-            style={{ borderColor: 'var(--border)' }}
-          >
-            <dt>You owe</dt>
+        </ul>
+      ) : (
+        <p className="type-callout mt-3" style={{ color: 'var(--text-muted)' }}>
+          You have not claimed anything yet.
+        </p>
+      )}
+
+      <dl
+        className="type-callout mt-4 space-y-2 border-t pt-4"
+        style={{ borderColor: 'var(--separator)' }}
+      >
+        {rows.map((row) => (
+          <div key={row.label} className="flex justify-between gap-3">
+            <dt style={{ color: 'var(--text-muted)' }}>{row.label}</dt>
             <dd>
-              <Money sen={person.amountDueSen} />
+              <Money sen={row.sen} />
             </dd>
           </div>
-        </dl>
+        ))}
+        <div
+          className="type-headline flex justify-between border-t pt-2.5"
+          style={{ borderColor: 'var(--separator)' }}
+        >
+          <dt>You owe</dt>
+          <dd>
+            <Money sen={person.amountDueSen} />
+          </dd>
+        </div>
+      </dl>
 
-        {person.belanjaCoveredBySponsorId ? (
-          <p className="mt-3 text-[14px]" style={{ color: 'var(--good)' }}>
-            Someone is belanja-ing you — you owe nothing.
-          </p>
-        ) : null}
+      {person.belanjaCoveredBySponsorId ? (
+        <p className="type-subhead mt-3" style={{ color: 'var(--good)' }}>
+          Someone is belanja-ing you — you owe nothing.
+        </p>
+      ) : null}
 
-        {person.roundingDeltaSen > 0 ? (
-          <p className="mt-3 text-[13px]" style={{ color: 'var(--text-muted)' }}>
-            Includes {person.roundingDeltaSen} sen from rounding. The bill splits to{' '}
-            {person.exactShareSen} sen exactly, and the leftover sen go to the largest fractions so
-            the shares add up to {formatRM(split.settlementTotalSen)}.
-          </p>
-        ) : null}
+      {person.roundingDeltaSen > 0 ? (
+        <p className="type-footnote mt-3" style={{ color: 'var(--text-muted)' }}>
+          Includes {person.roundingDeltaSen} sen from rounding. The bill splits to{' '}
+          {person.exactShareSen} sen exactly, and the leftover sen go to the largest fractions so
+          the shares add up to {formatRM(split.settlementTotalSen)}.
+        </p>
+      ) : null}
 
-        <button type="button" onClick={onClose} className="btn btn-secondary mt-5 w-full">
-          Close
-        </button>
-      </div>
-    </div>
+      <SheetClose />
+    </Sheet>
   );
 }
 
@@ -385,14 +377,14 @@ export function ClaimPage({
   // phone that reads as a link that did not work.
   if (!ready) {
     return (
-      <main className="mx-auto max-w-md px-5 pt-8 pb-10" aria-busy="true">
+      <main className="mx-auto max-w-md px-5 pt-6 pb-10" aria-busy="true">
         <span className="sr-only">Loading the bill…</span>
         <Skeleton width="70%" height={28} />
         <Skeleton className="mt-3" width="90%" height={15} />
         <div className="mt-8 space-y-2">
-          <Skeleton height={64} className="rounded-2xl" />
-          <Skeleton height={64} className="rounded-2xl" />
-          <Skeleton height={64} className="rounded-2xl" />
+          <Skeleton height={68} className="rounded-2xl" />
+          <Skeleton height={68} className="rounded-2xl" />
+          <Skeleton height={68} className="rounded-2xl" />
         </div>
       </main>
     );
@@ -423,32 +415,30 @@ export function ClaimPage({
 
   return (
     <>
-      <main className="mx-auto max-w-md px-5 pt-5 pb-32">
+      <main className="mx-auto max-w-md px-5 pt-6 pb-36">
         <header>
-          <h1 className="text-xl font-bold tracking-tight text-balance">
+          <h1 className="type-title-2 text-balance">
             {bundle.bill.title || bundle.bill.venue || 'Split this bill'}
           </h1>
-          <p className="mt-1 text-[14px]" style={{ color: 'var(--text-muted)' }}>
+          <p className="type-subhead mt-1" style={{ color: 'var(--text-muted)' }}>
             {bundle.bill.venue && bundle.bill.title ? `${bundle.bill.venue} · ` : ''}
             You are <strong style={{ color: 'var(--text)' }}>{myName}</strong>
           </p>
           <ConnectionNote status={status} queued={pendingItems.size} />
         </header>
 
-        {unclaimedCount > 0 ? (
-          <div className="mt-4">
+        <div className="mt-5">
+          {unclaimedCount > 0 ? (
             <Banner tone="warn">
               {unclaimedCount} {unclaimedCount === 1 ? 'item is' : 'items are'} still unclaimed.
             </Banner>
-          </div>
-        ) : (
-          <div className="mt-4">
+          ) : (
             <Banner tone="good">Everything is claimed.</Banner>
-          </div>
-        )}
+          )}
+        </div>
 
         {error ? (
-          <p className="mt-3 text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">
+          <p className="type-subhead mt-3" style={{ color: 'var(--accent-strong)' }} role="alert">
             {error}
           </p>
         ) : null}
@@ -475,39 +465,66 @@ export function ClaimPage({
               <li key={item.id}>
                 <button
                   type="button"
-                  onClick={() => toggle(item.id)}
+                  onClick={() => {
+                    // On the claim itself, on the frame it lands, and nowhere
+                    // else in the app. It is the one action here repeated
+                    // dozens of times in a row, which is exactly what a hand
+                    // can learn -- and exactly what stops meaning anything if
+                    // everything else buzzes too.
+                    haptic('select');
+                    toggle(item.id);
+                  }}
                   aria-pressed={mine}
                   disabled={full}
+                  data-press="row"
                   className="tap flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left"
                   style={{
                     background: mine ? 'var(--accent-wash)' : 'var(--surface)',
-                    borderColor: mine || unclaimed ? 'var(--accent)' : 'var(--border)',
+                    borderColor: mine || unclaimed ? 'var(--accent)' : 'var(--separator)',
                     // Dashed reads as "still open" at a glance, and stays
                     // distinct from the solid, filled state of your own claims
                     // without relying on colour alone.
                     borderStyle: unclaimed ? 'dashed' : 'solid',
+                    boxShadow: mine ? 'none' : 'var(--shadow-card)',
                     // A full line is dimmed rather than hidden: it is still part
                     // of the bill and somebody needs to see who took it.
-                    opacity: inFlight ? 0.6 : full ? 0.55 : 1,
+                    opacity: inFlight ? 0.6 : full ? 0.5 : 1,
                     cursor: full ? 'default' : undefined,
                   }}
                 >
                   <span
+                    // Keyed on the state so the tick is re-mounted, and so
+                    // replays its entrance, every time the claim flips. It
+                    // answers the tap on the same frame the row changes colour.
+                    key={mine ? 'claimed' : 'open'}
                     aria-hidden="true"
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[13px] font-bold"
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
+                      mine ? 'tick-in' : ''
+                    }`}
                     style={{
                       borderColor: mine ? 'var(--accent)' : 'var(--border)',
                       background: mine ? 'var(--accent)' : 'transparent',
-                      color: '#fff',
                     }}
                   >
-                    {mine ? '✓' : ''}
+                    {mine ? (
+                      <svg
+                        viewBox="0 0 16 16"
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        stroke="#fff"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m3 8.5 3.5 3.5L13 4.5" />
+                      </svg>
+                    ) : null}
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{item.name}</span>
+                    <span className="type-callout block font-medium">{item.name}</span>
                     <span
-                      className="mt-0.5 block text-[13px]"
+                      className="type-footnote mt-0.5 block"
                       style={{ color: 'var(--text-muted)' }}
                     >
                       {item.portions !== null ? (
@@ -529,7 +546,7 @@ export function ClaimPage({
                       )}
                     </span>
                     {perHead !== null || item.portions !== null ? (
-                      <span className="mt-1 block">
+                      <span className="mt-1.5 block">
                         <AvatarRow
                           people={claimants.map((p) => ({ id: p.id, name: p.display_name }))}
                         />
@@ -537,7 +554,7 @@ export function ClaimPage({
                     ) : null}
                   </span>
 
-                  <Money sen={item.price_sen} className="shrink-0 font-semibold" />
+                  <Money sen={item.price_sen} className="type-headline shrink-0" />
                 </button>
               </li>
             );
@@ -545,58 +562,66 @@ export function ClaimPage({
         </ul>
 
         {bundle.items.length === 0 ? (
-          <p className="mt-6 text-center text-[15px]" style={{ color: 'var(--text-muted)' }}>
+          <p className="type-callout mt-6 text-center" style={{ color: 'var(--text-muted)' }}>
             Nothing has been added to this bill yet.
           </p>
         ) : null}
       </main>
 
-      {/* Pinned running total. Always visible, tap for the full breakdown. */}
-      <div
-        className="fixed inset-x-0 bottom-0 z-10 border-t"
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        <div className="mx-auto flex w-full max-w-md items-center gap-3 px-5 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
-          <button
-            type="button"
-            onClick={() => setShowBreakdown(true)}
-            disabled={!me}
-            className="tap min-w-0 flex-1 text-left"
-          >
-            <span className="block text-[13px]" style={{ color: 'var(--text-muted)' }}>
-              Your share {me ? '· tap for details' : ''}
-            </span>
-            <span className="block text-2xl font-bold">
-              <Money sen={me?.amountDueSen ?? 0} />
-            </span>
-          </button>
-
-          {isSettled ? (
-            // A button rather than a label: once settled there was previously no
-            // way back into the sheet at all, so somebody whose share had moved
-            // could not read why.
+      {/*
+        The running total, floating over the list rather than sitting on a shelf
+        below it. Seeing the items carry on under the glass is what says there
+        is more list; a solid bar with a rule above it says the list ended.
+      */}
+      <div className="fixed inset-x-0 bottom-0 z-10">
+        <div className="scroll-edge" aria-hidden="true" />
+        <div className="material">
+          <div className="mx-auto flex w-full max-w-md items-center gap-3 px-5 pt-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
             <button
               type="button"
-              onClick={() => setShowSettle(true)}
-              className="tap shrink-0 rounded-xl px-3 py-2 text-[14px] font-semibold"
-              style={
-                settlementIsOff
-                  ? { background: 'var(--accent-wash-strong)', color: 'var(--accent-strong)' }
-                  : { background: 'var(--good-wash)', color: 'var(--good)' }
-              }
-            >
-              {settlementIsOff ? 'Check this' : 'Paid'}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-primary shrink-0"
+              onClick={() => setShowBreakdown(true)}
               disabled={!me}
-              onClick={() => setShowSettle(true)}
+              data-press="plain"
+              className="tap min-w-0 flex-1 text-left"
             >
-              Settle up
+              <span
+                className="on-material type-footnote block"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Your share {me ? '· tap for details' : ''}
+              </span>
+              <Money sen={me?.amountDueSen ?? 0} className="type-amount mt-0.5 block" />
             </button>
-          )}
+
+            {isSettled ? (
+              // A button rather than a label: once settled there was previously no
+              // way back into the sheet at all, so somebody whose share had moved
+              // could not read why.
+              <button
+                type="button"
+                onClick={() => setShowSettle(true)}
+                data-press="button"
+                className="tap type-subhead shrink-0 rounded-xl px-3.5 py-2 font-semibold"
+                style={
+                  settlementIsOff
+                    ? { background: 'var(--accent-wash-strong)', color: 'var(--accent-strong)' }
+                    : { background: 'var(--good-wash)', color: 'var(--good)' }
+                }
+              >
+                {settlementIsOff ? 'Check this' : 'Paid'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-press="button"
+                className="btn btn-primary shrink-0"
+                disabled={!me}
+                onClick={() => setShowSettle(true)}
+              >
+                Settle up
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

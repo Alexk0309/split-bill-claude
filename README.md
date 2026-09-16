@@ -449,6 +449,58 @@ the link. With a pinned divisor that gap has a price, because their portion of a
 shared dish could never be taken by anyone. `participants.user_id` marks the row
 that is the account holder — at most one per bill, and never granted to guests.
 
+## How the interface is built
+
+Everything below is one bet: the qualities that make an app feel handled rather
+than read — directness, weight, physicality — come from a handful of decisions
+made consistently, not from decoration.
+
+**Type is a ramp, not a set of sizes.** `.type-display` down to `.type-caption`
+in `app/globals.css` fix size, weight, leading and tracking together, and the
+tracking is specific to each size: large text is pulled in (`-0.022em`), small
+text is let out (`+0.01em`). Letters drift apart as they grow, so a single
+`letter-spacing` across a ramp is wrong at one end of it or the other.
+Everything is set in `rem` and spaced in `rem`, so a larger system text size
+scales the layout with the words instead of bursting it.
+
+**Chrome is a material with the page moving underneath it.** The running total
+on the claim screen and the New bill bar float as blurred, translucent layers
+(`.material`) with the list passing beneath, and content fades out into them
+(`.scroll-edge`) rather than being ruled off by a hairline. A border under a
+sticky bar claims the content ends there. It does not, and seeing it continue is
+what says so.
+
+**Presses answer on the way down.** `components/press-feedback.tsx` installs one
+pointer listener for the whole app; anything with `data-press` highlights on
+pointer-*down* and still acts on release. It is revocable the way a real press
+is: slide off the target and the highlight comes off, slide back and it returns,
+and a scroll cancels it outright. `:active` cannot express any of that, and
+Safari on iOS withholds it from elements it has decided are not interactive.
+
+**Sheets are objects you can throw.** `components/sheet.tsx` and
+`lib/motion/spring.ts` replace the dialogs that used to appear and vanish. The
+sheet tracks the finger exactly from wherever it was grabbed, hands the release
+velocity straight to the spring so there is no seam between dragging and
+animating, decides its fate by projecting the flick forward rather than reading
+where the finger stopped, and resists rather than stopping dead at its top edge.
+Nothing is ever locked: grab it while it is opening or closing and it is yours
+from wherever it is that instant, because the spring animates from the value on
+screen and carries its velocity through a retarget. Springs are parameterised as
+damping and response, not mass and stiffness — overshoot is spent only where a
+gesture put momentum in.
+
+**Accessibility settings are three separate answers.** Reduced motion trades
+travel and overshoot for a cross-fade and keeps the feedback (a dragged sheet
+still follows the finger — that is the user's own hand, not the interface moving
+under them). Reduced transparency frosts the materials solid and drops the blur.
+More contrast makes the hairlines visible and the muted text less muted.
+
+**Haptics are spent on two things.** A claim landing, and a settlement being
+confirmed. Nothing else. A phone that buzzes at everything teaches the hand to
+stop listening, and then it cannot buzz for the one thing that mattered. Only
+Android Chrome implements it; nothing depends on it, because the visual always
+carries the meaning alone.
+
 ## Notes on the build
 
 - `@supabase/ssr` is used alongside `@supabase/supabase-js`. It is Supabase's own

@@ -36,7 +36,13 @@ export function SubmitButton({
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" className={className} disabled={pending} aria-busy={pending}>
+    <button
+      type="submit"
+      data-press="button"
+      className={className}
+      disabled={pending}
+      aria-busy={pending}
+    >
       {pending ? (
         <>
           <span className="spinner" aria-hidden="true" />
@@ -64,8 +70,8 @@ export function SubmitButton({
 export function ConfirmButton({
   children,
   confirmLabel,
-  className = 'btn btn-ghost w-full text-[14px]',
-  confirmClassName = 'btn btn-primary w-full text-[14px]',
+  className = 'btn btn-ghost type-subhead w-full',
+  confirmClassName = 'btn btn-primary type-subhead w-full',
   pendingLabel,
 }: {
   children: React.ReactNode;
@@ -87,7 +93,7 @@ export function ConfirmButton({
 
   if (!armed) {
     return (
-      <button type="button" className={className} onClick={() => setArmed(true)}>
+      <button type="button" data-press="button" className={className} onClick={() => setArmed(true)}>
         {children}
       </button>
     );
@@ -100,7 +106,8 @@ export function ConfirmButton({
       </SubmitButton>
       <button
         type="button"
-        className="btn btn-secondary shrink-0 text-[14px]"
+        data-press="button"
+        className="btn btn-secondary type-subhead shrink-0"
         onClick={() => setArmed(false)}
         disabled={pending}
       >

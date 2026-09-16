@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { formatRM, formatSen } from '@/lib/money';
 
 /** Money, always rendered from integer sen. Tabular so columns line up. */
@@ -14,6 +16,39 @@ export function Money({
     <span className={`tabular ${className}`}>
       {withSymbol ? formatRM(sen) : formatSen(sen)}
     </span>
+  );
+}
+
+/**
+ * The way back, on every screen that is not the top of a stack.
+ *
+ * A screen has to answer where you are and how you leave. A chevron pointing
+ * the way you came, named for the place it returns to rather than just "Back",
+ * answers both -- and it is the one control on the page whose position should
+ * never move between screens.
+ */
+export function BackLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      data-press="plain"
+      className="tap type-subhead -ml-1 inline-flex items-center gap-0.5 pr-2"
+      style={{ color: 'var(--accent)' }}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 12 20"
+        className="h-[1em] w-[0.6em]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M10 2 2 10l8 8" />
+      </svg>
+      {children}
+    </Link>
   );
 }
 
@@ -50,7 +85,9 @@ export function Avatar({
       style={{
         width: size,
         height: size,
+        // Initials in a small circle need tracking opened up or they touch.
         fontSize: size * 0.4,
+        letterSpacing: '0.02em',
         background: `oklch(0.9 0.06 ${hue})`,
         color: `oklch(0.38 0.09 ${hue})`,
         opacity: dimmed ? 0.45 : 1,
@@ -70,7 +107,7 @@ export function AvatarRow({
   emptyLabel?: string;
 }) {
   if (people.length === 0) {
-    return <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{emptyLabel}</span>;
+    return <span className="type-footnote" style={{ color: 'var(--text-muted)' }}>{emptyLabel}</span>;
   }
   return (
     <span className="flex items-center gap-1">
@@ -79,7 +116,7 @@ export function AvatarRow({
         <Avatar key={p.id} name={p.name} seed={p.id} size={24} />
       ))}
       {people.length > 6 ? (
-        <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <span className="type-footnote" style={{ color: 'var(--text-muted)' }}>
           +{people.length - 6}
         </span>
       ) : null}
@@ -95,11 +132,11 @@ export function Banner({
   children: React.ReactNode;
 }) {
   const background =
-    tone === 'good' ? 'var(--good-wash)' : tone === 'info' ? 'var(--surface-sunk)' : 'var(--accent-wash-strong)';
+    tone === 'good' ? 'var(--good-wash)' : tone === 'info' ? 'var(--fill)' : 'var(--accent-wash-strong)';
   const color = tone === 'good' ? 'var(--good)' : tone === 'info' ? 'var(--text-muted)' : 'var(--accent-strong)';
   return (
     <div
-      className="rounded-xl px-3 py-2.5 text-[14px] font-medium"
+      className="type-subhead rounded-xl px-3.5 py-2.5 font-medium"
       style={{ background, color }}
       role="status"
     >
@@ -110,10 +147,10 @@ export function Banner({
 
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="card px-4 py-8 text-center">
-      <p className="font-semibold">{title}</p>
+    <div className="card px-4 py-10 text-center">
+      <p className="type-headline">{title}</p>
       {hint ? (
-        <p className="mt-1 text-[14px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="type-subhead mx-auto mt-1.5 max-w-[24ch]" style={{ color: 'var(--text-muted)' }}>
           {hint}
         </p>
       ) : null}
@@ -151,7 +188,7 @@ export function UsageMeter({
   if (remaining === 0) {
     return (
       <p
-        className="mt-2 text-[13px]"
+        className="type-footnote mt-2"
         style={{ color: 'var(--accent-strong)' }}
         role="status"
       >
@@ -164,7 +201,7 @@ export function UsageMeter({
   if (remaining > quietUntilRemaining) return null;
 
   return (
-    <p className="mt-2 text-[13px]" style={{ color: 'var(--text-muted)' }} role="status">
+    <p className="type-footnote mt-2" style={{ color: 'var(--text-muted)' }} role="status">
       {remaining} {remaining === 1 ? noun : plural} left
     </p>
   );
@@ -189,7 +226,7 @@ export function UsageCount({
   // knowing; what it does not get is a fraction with nothing in the denominator.
   if (limit === null) {
     return (
-      <span className="tabular text-[13px]" style={{ color: 'var(--text-muted)' }}>
+      <span className="tabular type-footnote" style={{ color: 'var(--text-muted)' }}>
         {used} {used === 1 ? noun : plural} created · no limit
       </span>
     );
@@ -198,7 +235,7 @@ export function UsageCount({
   const remaining = Math.max(0, limit - used);
   return (
     <span
-      className="tabular text-[13px]"
+      className="tabular type-footnote"
       style={{ color: remaining === 0 ? 'var(--accent-strong)' : 'var(--text-muted)' }}
     >
       {used} of {limit} {plural} used

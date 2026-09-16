@@ -1,8 +1,7 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import { ConfirmButton, SubmitButton } from '@/components/pending';
-import { Avatar, Banner, Money } from '@/components/ui';
+import { Avatar, BackLink, Banner, Money } from '@/components/ui';
 import { loadOwnerBill } from '@/lib/bill/load';
 import { toBillInput } from '@/lib/bill/to-engine-input';
 import { computeSplit, type SplitResult } from '@/lib/split';
@@ -97,17 +96,11 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
     <main className="mx-auto max-w-md px-5 pt-4 pb-16">
       <LiveRefresh shareToken={bill.share_token} />
 
-      <Link
-        href="/bills"
-        className="tap inline-flex items-center text-[14px]"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        ← All bills
-      </Link>
+      <BackLink href="/bills">All bills</BackLink>
 
-      <h1 className="mt-2 text-2xl font-bold tracking-tight text-balance">{heading}</h1>
+      <h1 className="type-title mt-2 text-balance">{heading}</h1>
 
-      <div className="mt-5 space-y-6">
+      <div className="mt-6 space-y-7">
         <ScanPanel billId={bill.id} userId={user.id} scansUsed={bill.receipt_scans_used} />
 
         <BillSettingsForm bill={bill} />
@@ -122,13 +115,13 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
         <PeopleEditor billId={bill.id} participants={participants} />
 
         <section>
-          <h2 className="mb-2 text-[15px] font-semibold">Totals</h2>
+          <h2 className="group-label">Totals</h2>
 
           {splitError ? (
             <Banner tone="warn">{splitError}</Banner>
           ) : split ? (
-            <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
-              <dl className="space-y-1.5 px-4 py-3 text-[15px]">
+            <div className="list">
+              <dl className="type-callout space-y-2 px-4 py-3.5">
                 <div className="flex justify-between">
                   <dt style={{ color: 'var(--text-muted)' }}>Subtotal</dt>
                   <dd>
@@ -147,7 +140,9 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
                     <Money sen={split.serviceTaxSen} />
                   </dd>
                 </div>
-                <div className="flex justify-between pt-1.5 font-semibold">
+                {/* The one figure somebody is looking for, weighted so it is
+                    found without being read for. */}
+                <div className="type-headline flex justify-between pt-1.5">
                   <dt>Total</dt>
                   <dd>
                     <Money sen={split.billTotalSen} />
@@ -156,12 +151,12 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
               </dl>
 
               {split.people.length > 0 ? (
-                <ul className="px-4 py-3">
+                <ul className="type-callout px-4 py-3">
                   {split.people.map((person) => (
-                    <li key={person.personId} className="flex items-center gap-2 py-1 text-[15px]">
+                    <li key={person.personId} className="flex items-center gap-2.5 py-1.5">
                       <Avatar name={person.name} seed={person.personId} size={24} />
                       <span className="min-w-0 flex-1 truncate">{person.name}</span>
-                      <Money sen={person.amountDueSen} className="font-semibold" />
+                      <Money sen={person.amountDueSen} className="type-emph" />
                     </li>
                   ))}
                 </ul>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useActionState, useMemo, useState } from 'react';
 
 import { SubmitButton } from '@/components/pending';
-import { Banner, Money } from '@/components/ui';
+import { BackLink, Banner, Money } from '@/components/ui';
 import { formatRateAsPercent } from '@/lib/bill/rates';
 import { formatSen, parseAmountToSen } from '@/lib/money';
 import type { DerivedRates } from '@/lib/ocr/reconcile';
@@ -95,16 +95,10 @@ export function ReceiptReview({
 
   return (
     <main className="mx-auto max-w-md px-5 pt-4 pb-28">
-      <Link
-        href={`/bills/${billId}`}
-        className="tap inline-flex items-center text-[14px]"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        ← Back to the bill
-      </Link>
+      <BackLink href={`/bills/${billId}`}>Back to the bill</BackLink>
 
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">Check the receipt</h1>
-      <p className="mt-2 text-[15px]" style={{ color: 'var(--text-muted)' }}>
+      <h1 className="type-title mt-2">Check the receipt</h1>
+      <p className="type-subhead mt-2" style={{ color: 'var(--text-muted)' }}>
         Nothing is shared until you say so. Fix anything that was read wrong.
       </p>
 
@@ -167,7 +161,7 @@ export function ReceiptReview({
           />
         </div>
 
-        <h2 className="label mt-5">Items</h2>
+        <h2 className="group-label mt-6">Items</h2>
         <ul className="space-y-2">
           {rows.map((row) => (
             <li key={row.key} className="card flex items-center gap-2 p-2">
@@ -191,6 +185,7 @@ export function ReceiptReview({
               />
               <button
                 type="button"
+                data-press="button"
                 className="btn btn-ghost tap shrink-0 px-2"
                 onClick={() => setRows((current) => current.filter((r) => r.key !== row.key))}
               >
@@ -203,6 +198,7 @@ export function ReceiptReview({
 
         <button
           type="button"
+          data-press="button"
           className="btn btn-secondary mt-2 w-full"
           onClick={() =>
             setRows((current) => [
@@ -214,8 +210,8 @@ export function ReceiptReview({
           Add a missing item
         </button>
 
-        <h2 className="label mt-5">Charges</h2>
-        <p className="mb-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <h2 className="group-label mt-6">Charges</h2>
+        <p className="type-footnote mb-2.5" style={{ color: 'var(--text-muted)' }}>
           Worked out from what the receipt charged, not assumed.
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -239,7 +235,7 @@ export function ReceiptReview({
                 %
               </span>
             </div>
-            <p className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            <p className="type-caption mt-1.5" style={{ color: 'var(--text-muted)' }}>
               Printed: <Money sen={receipt.service_charge_sen} />
             </p>
           </div>
@@ -263,23 +259,23 @@ export function ReceiptReview({
                 %
               </span>
             </div>
-            <p className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            <p className="type-caption mt-1.5" style={{ color: 'var(--text-muted)' }}>
               Printed: <Money sen={receipt.service_tax_sen} />
             </p>
           </div>
         </div>
 
         {state && !state.ok ? (
-          <p className="mt-4 text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">
+          <p className="type-subhead mt-4" style={{ color: 'var(--accent-strong)' }} role="alert">
             {state.error}
           </p>
         ) : null}
 
-        <div className="mt-6 space-y-2">
+        <div className="mt-7 space-y-2">
           <SubmitButton className="btn btn-primary w-full" pendingLabel="Saving…">
             Use these items
           </SubmitButton>
-          <Link href={`/bills/${billId}`} className="btn btn-ghost w-full">
+          <Link href={`/bills/${billId}`} data-press="button" className="btn btn-ghost w-full">
             Discard and type it in myself
           </Link>
         </div>

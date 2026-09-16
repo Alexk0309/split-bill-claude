@@ -2,8 +2,10 @@
 
 import { useRef, useState } from 'react';
 
+import { Sheet, SheetClose } from '@/components/sheet';
 import { Banner, Money } from '@/components/ui';
 import { formatSen } from '@/lib/money';
+import { haptic } from '@/lib/motion/feedback';
 import { needsAttention, settlementDrift } from '@/lib/settlement/drift';
 import { LIMIT_MESSAGES, PROOF_SCANS_PER_BILL } from '@/lib/limits';
 import { ImageDecodeError, downscaleToJpeg } from '@/lib/ocr/downscale';
@@ -32,19 +34,23 @@ function CopyRow({
   }
 
   return (
-    <div
-      className="flex items-center gap-3 rounded-xl px-3.5 py-3"
-      style={{ background: 'var(--surface-sunk)' }}
-    >
+    <div className="sunk flex items-center gap-3 px-3.5 py-3">
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <span className="type-footnote block" style={{ color: 'var(--text-muted)' }}>
           {label}
         </span>
-        <span className="tabular block text-[19px] font-semibold select-all">
-          {display ?? value}
-        </span>
+        <span className="tabular type-title-2 block select-all">{display ?? value}</span>
       </span>
-      <button type="button" onClick={copy} className="btn btn-secondary tap min-h-0 px-3 py-2 text-[14px]">
+      <button
+        type="button"
+        onClick={copy}
+        data-press="button"
+        className="btn btn-secondary tap type-subhead min-h-0 px-3 py-2"
+        // Fixed width, so the label changing from "Copy" to "Copied" does not
+        // shove the number beside it sideways. Something moving is a signal;
+        // this one would be pointing at nothing.
+        style={{ minWidth: '4.75rem' }}
+      >
         {copied ? 'Copied' : 'Copy'}
       </button>
     </div>
@@ -105,12 +111,17 @@ export function SettleSheet({
         | { ok: false; message: string };
 
       if (!result.ok) {
+        haptic('warn');
         setState({ kind: 'done', matched: false, message: result.message });
         return;
       }
+      // The outcome of a wait, which is the other moment worth a haptic: the
+      // answer arrives after the screen has probably been put down.
+      haptic(result.matched ? 'commit' : 'warn');
       setState({ kind: 'done', matched: result.matched, message: result.message });
       if (result.matched) onSettled();
     } catch (caught) {
+      haptic('warn');
       setState({
         kind: 'done',
         matched: false,
@@ -137,146 +148,139 @@ export function SettleSheet({
   const checksGone = proofScansUsed >= PROOF_SCANS_PER_BILL;
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col justify-end">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0"
-        style={{ background: 'rgb(0 0 0 / 0.4)' }}
-      />
-      <div
-        className="relative max-h-[88dvh] overflow-y-auto rounded-t-2xl px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
-        style={{ background: 'var(--surface)' }}
-        role="dialog"
-        aria-label="Settle up"
-      >
-        <h2 className="text-lg font-bold">Settle up</h2>
-
-        {settled ? (
-          <div className="mt-4 space-y-3">
-            {drifted ? (
-              <>
-                <Banner tone="warn">
-                  {drift.kind === 'overpaid' ? (
-                    <>
-                      You paid <Money sen={settledAmountSen ?? 0} />, and your share has since
-                      fallen to <Money sen={amountSen} /> because more people claimed what you
-                      shared. <strong><Money sen={drift.deltaSen} /> is owed back to you.</strong>
-                    </>
-                  ) : (
-                    <>
-                      You paid <Money sen={settledAmountSen ?? 0} />, and your share has since
-                      risen to <Money sen={amountSen} />.{' '}
-                      <strong><Money sen={-drift.deltaSen} /> is still to go.</strong>
-                    </>
-                  )}
-                </Banner>
-                <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>
-                  {payee?.display_name ?? 'The person who paid'} can see this too — sort it out
-                  with them directly. Nothing here moves money.
-                </p>
-              </>
-            ) : (
-              <Banner tone="good">
-                Marked as paid{settledMethod === 'cash' ? ' in cash' : ''}. Nothing more to do.
+    <Sheet label="Settle up" onClose={onClose} heading={<h2 className="type-title-2">Settle up</h2>}>
+      {settled ? (
+        <div className="mt-3 space-y-3">
+          {drifted ? (
+            <>
+              <Banner tone="warn">
+                {drift.kind === 'overpaid' ? (
+                  <>
+                    You paid <Money sen={settledAmountSen ?? 0} />, and your share has since
+                    fallen to <Money sen={amountSen} /> because more people claimed what you
+                    shared. <strong><Money sen={drift.deltaSen} /> is owed back to you.</strong>
+                  </>
+                ) : (
+                  <>
+                    You paid <Money sen={settledAmountSen ?? 0} />, and your share has since
+                    risen to <Money sen={amountSen} />.{' '}
+                    <strong><Money sen={-drift.deltaSen} /> is still to go.</strong>
+                  </>
+                )}
               </Banner>
-            )}
+              <p className="type-subhead" style={{ color: 'var(--text-muted)' }}>
+                {payee?.display_name ?? 'The person who paid'} can see this too — sort it out
+                with them directly. Nothing here moves money.
+              </p>
+            </>
+          ) : (
+            <Banner tone="good">
+              Marked as paid{settledMethod === 'cash' ? ' in cash' : ''}. Nothing more to do.
+            </Banner>
+          )}
+        </div>
+      ) : (
+        <>
+          <p className="type-subhead mt-1" style={{ color: 'var(--text-muted)' }}>
+            Pay {payee?.display_name ?? 'the person who paid'} directly. The money goes
+            bank-to-bank; this app never touches it.
+          </p>
+
+          <div className="mt-4 space-y-2">
+            <CopyRow
+              label="You owe"
+              value={formatSen(amountSen, { grouped: false })}
+              display={<Money sen={amountSen} />}
+            />
+            {payee?.duitnow_mobile ? (
+              <CopyRow label="DuitNow to this number" value={payee.duitnow_mobile} />
+            ) : null}
           </div>
-        ) : (
-          <>
-            <p className="mt-1 text-[14px]" style={{ color: 'var(--text-muted)' }}>
-              Pay {payee?.display_name ?? 'the person who paid'} directly. The money goes
-              bank-to-bank; this app never touches it.
+
+          {payee?.duitnow_mobile ? (
+            <ol
+              className="type-subhead mt-4 space-y-1.5 pl-5"
+              style={{ color: 'var(--text-muted)', listStyle: 'decimal' }}
+            >
+              <li>Open your banking app</li>
+              <li>Choose DuitNow, then transfer to a mobile number</li>
+              <li>Paste the number and the amount</li>
+            </ol>
+          ) : (
+            <div className="mt-4">
+              <Banner tone="info">
+                {payee?.display_name ?? 'The payer'} has not added a DuitNow number yet. Ask them
+                how they would like to be paid.
+              </Banner>
+            </div>
+          )}
+
+          {payee?.qr_url ? (
+            <div className="mt-5">
+              <p className="group-label">Or scan their DuitNow QR</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={payee.qr_url}
+                alt={`DuitNow QR code for ${payee.display_name ?? 'the payer'}`}
+                className="mx-auto w-48 rounded-2xl p-2"
+                // Always on white, whatever the theme: a scanner needs the
+                // contrast the code was printed with.
+                style={{ background: '#fff', boxShadow: 'var(--shadow-card)' }}
+              />
+            </div>
+          ) : null}
+
+          <div className="mt-6 border-t pt-4" style={{ borderColor: 'var(--separator)' }}>
+            <p className="type-headline">Already paid?</p>
+            <p className="type-footnote mt-1 mb-2.5" style={{ color: 'var(--text-muted)' }}>
+              Send the confirmation screenshot and we will check it against what you owe.
             </p>
 
-            <div className="mt-4 space-y-2">
-              <CopyRow
-                label="You owe"
-                value={formatSen(amountSen, { grouped: false })}
-                display={<Money sen={amountSen} />}
-              />
-              {payee?.duitnow_mobile ? (
-                <CopyRow label="DuitNow to this number" value={payee.duitnow_mobile} />
-              ) : null}
-            </div>
-
-            {payee?.duitnow_mobile ? (
-              <ol
-                className="mt-4 space-y-1 pl-5 text-[14px]"
-                style={{ color: 'var(--text-muted)', listStyle: 'decimal' }}
-              >
-                <li>Open your banking app</li>
-                <li>Choose DuitNow, then transfer to a mobile number</li>
-                <li>Paste the number and the amount</li>
-              </ol>
+            {checksGone ? (
+              <Banner tone="info">{LIMIT_MESSAGES.proof}</Banner>
             ) : (
-              <div className="mt-4">
-                <Banner tone="info">
-                  {payee?.display_name ?? 'The payer'} has not added a DuitNow number yet. Ask them
-                  how they would like to be paid.
-                </Banner>
-              </div>
+              <>
+                <input
+                  ref={inputRef}
+                  id="proof-file"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={busy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void onFile(file);
+                  }}
+                />
+                <label
+                  htmlFor="proof-file"
+                  data-press="button"
+                  className="btn btn-primary w-full"
+                  aria-disabled={busy}
+                  style={busy ? { opacity: 0.4, pointerEvents: 'none' } : undefined}
+                >
+                  {busy ? (
+                    <>
+                      <span className="spinner" aria-hidden="true" />
+                      {state.label}
+                    </>
+                  ) : (
+                    'Upload transfer proof'
+                  )}
+                </label>
+              </>
             )}
 
-            {payee?.qr_url ? (
-              <div className="mt-4">
-                <p className="label">Or scan their DuitNow QR</p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={payee.qr_url}
-                  alt={`DuitNow QR code for ${payee.display_name ?? 'the payer'}`}
-                  className="mx-auto w-48 rounded-xl"
-                  style={{ background: '#fff' }}
-                />
+            {state.kind === 'done' ? (
+              <div className="mt-3">
+                <Banner tone={state.matched ? 'good' : 'warn'}>{state.message}</Banner>
               </div>
             ) : null}
+          </div>
+        </>
+      )}
 
-            <div className="mt-5 border-t pt-4" style={{ borderColor: 'var(--border)' }}>
-              <p className="label">Already paid?</p>
-              <p className="mb-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>
-                Send the confirmation screenshot and we will check it against what you owe.
-              </p>
-
-              {checksGone ? (
-                <Banner tone="info">{LIMIT_MESSAGES.proof}</Banner>
-              ) : (
-                <>
-                  <input
-                    ref={inputRef}
-                    id="proof-file"
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    disabled={busy}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void onFile(file);
-                    }}
-                  />
-                  <label
-                    htmlFor="proof-file"
-                    className="btn btn-primary w-full"
-                    style={busy ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
-                  >
-                    {busy ? state.label : 'Upload transfer proof'}
-                  </label>
-                </>
-              )}
-
-              {state.kind === 'done' ? (
-                <div className="mt-3">
-                  <Banner tone={state.matched ? 'good' : 'warn'}>{state.message}</Banner>
-                </div>
-              ) : null}
-            </div>
-          </>
-        )}
-
-        <button type="button" onClick={onClose} className="btn btn-secondary mt-5 w-full">
-          Close
-        </button>
-      </div>
-    </div>
+      <SheetClose />
+    </Sheet>
   );
 }

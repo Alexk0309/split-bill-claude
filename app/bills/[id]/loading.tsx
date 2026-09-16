@@ -10,7 +10,7 @@ export default function Loading() {
       <Skeleton width={80} height={14} />
       <Skeleton className="mt-3" width="65%" height={30} />
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-7">
         <SkeletonCard lines={3} />
 
         <div>

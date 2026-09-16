@@ -22,7 +22,7 @@ import {
 function ErrorText({ state }: { state: ActionResult | undefined }) {
   if (!state || state.ok) return null;
   return (
-    <p className="mt-2 text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">
+    <p className="type-subhead mt-2" style={{ color: 'var(--accent-strong)' }} role="alert">
       {state.error}
     </p>
   );
@@ -108,7 +108,7 @@ export function BillSettingsForm({ bill }: { bill: BillRow }) {
           </div>
         </div>
       </div>
-      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+      <p className="type-footnote" style={{ color: 'var(--text-muted)' }}>
         Copy these off the receipt. Tax is charged on the subtotal plus service charge. Mamak and
         kopitiam are usually 0% for both.
       </p>
@@ -133,7 +133,7 @@ export function BillSettingsForm({ bill }: { bill: BillRow }) {
         Save details
       </SubmitButton>
       {state?.ok ? (
-        <p className="text-center text-[14px]" style={{ color: 'var(--good)' }} role="status">
+        <p className="type-subhead text-center" style={{ color: 'var(--good)' }} role="status">
           Saved
         </p>
       ) : null}
@@ -189,13 +189,13 @@ function ItemRow({
     : PORTION_CHOICES;
 
   return (
-    <div className="card px-3 py-2.5">
+    <div className="card px-3.5 py-3">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{item.name}</p>
-          <div className="mt-0.5 flex items-center gap-1.5">
+          <p className="type-callout truncate font-medium">{item.name}</p>
+          <div className="mt-1 flex items-center gap-1.5">
             {taken === 0 ? (
-              <span className="text-[13px]" style={{ color: 'var(--accent-strong)' }}>
+              <span className="type-footnote" style={{ color: 'var(--accent-strong)' }}>
                 Unclaimed
               </span>
             ) : (
@@ -204,7 +204,7 @@ function ItemRow({
                   <Avatar key={p.id} name={p.display_name} seed={p.id} size={20} />
                 ))}
                 {claimants.length > 5 ? (
-                  <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                  <span className="type-footnote" style={{ color: 'var(--text-muted)' }}>
                     +{claimants.length - 5}
                   </span>
                 ) : null}
@@ -212,7 +212,7 @@ function ItemRow({
             )}
           </div>
         </div>
-        <Money sen={item.price_sen} className="font-semibold" />
+        <Money sen={item.price_sen} className="type-headline" />
         <form action={deleteItem}>
           <input type="hidden" name="billId" value={billId} />
           <input type="hidden" name="itemId" value={item.id} />
@@ -227,13 +227,13 @@ function ItemRow({
         <form ref={portionsForm} action={portionsAction} className="flex items-center gap-1.5">
           <input type="hidden" name="billId" value={billId} />
           <input type="hidden" name="itemId" value={item.id} />
-          <label className="text-[13px]" style={{ color: 'var(--text-muted)' }} htmlFor={`portions-${item.id}`}>
+          <label className="type-footnote" style={{ color: 'var(--text-muted)' }} htmlFor={`portions-${item.id}`}>
             Split
           </label>
           <select
             id={`portions-${item.id}`}
             name="portions"
-            className="field min-h-0 w-auto py-1.5 text-[14px]"
+            className="field type-subhead min-h-0 w-auto py-1.5"
             defaultValue={portions === null ? 'auto' : String(portions)}
             onChange={() => portionsForm.current?.requestSubmit()}
           >
@@ -252,7 +252,7 @@ function ItemRow({
             <input type="hidden" name="itemId" value={item.id} />
             <input type="hidden" name="claimed" value={mine ? 'true' : 'false'} />
             <SubmitButton
-              className="btn btn-ghost tap min-h-0 px-2 py-1.5 text-[14px]"
+              className="btn btn-ghost tap type-subhead min-h-0 px-2 py-1.5"
               pendingLabel="…"
             >
               {mine ? '✓ I had this' : 'I had this'}
@@ -262,7 +262,7 @@ function ItemRow({
       </div>
 
       {portions !== null ? (
-        <p className="mt-1 text-[13px]" style={{ color: full ? 'var(--text-muted)' : 'var(--accent-strong)' }}>
+        <p className="type-footnote mt-1.5" style={{ color: full ? 'var(--text-muted)' : 'var(--accent-strong)' }}>
           {taken} of {portions} taken
           {taken < portions ? ' — the rest is nobody\u2019s yet' : ''}
         </p>
@@ -300,15 +300,15 @@ export function ItemsEditor({
 
   return (
     <section>
-      <h2 className="mb-2 text-[15px] font-semibold">Items</h2>
+      <h2 className="group-label">Items</h2>
 
       {myParticipantId === null ? (
         <form action={addMeToBill} className="mb-2">
           <input type="hidden" name="billId" value={billId} />
-          <SubmitButton className="btn btn-secondary w-full text-[14px]" pendingLabel="Adding you…">
+          <SubmitButton className="btn btn-secondary type-subhead w-full" pendingLabel="Adding you…">
             Add me to this bill
           </SubmitButton>
-          <p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+          <p className="type-footnote mt-1.5" style={{ color: 'var(--text-muted)' }}>
             So you can claim what you had. You are not on the bill until you do.
           </p>
         </form>
@@ -380,8 +380,8 @@ export function PeopleEditor({
 
   return (
     <section>
-      <h2 className="mb-2 text-[15px] font-semibold">Who was there</h2>
-      <p className="mb-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+      <h2 className="group-label">Who was there</h2>
+      <p className="type-footnote mb-2.5" style={{ color: 'var(--text-muted)' }}>
         Names only. Nobody needs an account, and anyone you miss can add themselves from the link.
       </p>
 
@@ -393,7 +393,7 @@ export function PeopleEditor({
               className="card flex items-center gap-2 py-1.5 pr-1.5 pl-2.5"
             >
               <Avatar name={p.display_name} seed={p.id} size={22} />
-              <span className="text-[15px]">{p.display_name}</span>
+              <span className="type-callout">{p.display_name}</span>
               <form action={deleteParticipant}>
                 <input type="hidden" name="billId" value={billId} />
                 <input type="hidden" name="participantId" value={p.id} />

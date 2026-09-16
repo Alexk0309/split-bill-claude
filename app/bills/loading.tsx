@@ -10,16 +10,18 @@ import { Skeleton, SkeletonCard } from '@/components/ui';
  */
 export default function Loading() {
   return (
-    <main className="mx-auto max-w-md px-5 pt-6 pb-28" aria-busy="true">
+    <main className="mx-auto max-w-md px-5 pt-6 pb-32" aria-busy="true">
       <span className="sr-only">Loading your bills…</span>
 
-      <div className="flex items-center justify-between gap-3">
-        <Skeleton width={150} height={30} />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <Skeleton width={150} height={30} />
+          <Skeleton className="mt-1.5" width={130} height={13} />
+        </div>
         <Skeleton width={110} height={20} />
       </div>
-      <Skeleton className="mt-3" width={130} height={13} />
 
-      <div className="mt-5 space-y-2">
+      <div className="mt-6 space-y-2">
         <SkeletonCard />
         <SkeletonCard />
         <SkeletonCard />
