@@ -140,9 +140,18 @@ export function useClaimSync({
             return; // Keep the queue; the next reconnect retries it.
           }
           // A refusal will never succeed on retry, so drop it and say so rather
-          // than leaving a tap stuck on screen forever.
+          // than leaving a tap stuck on screen forever. Dropping the intent is
+          // also what reverts the optimistic tap, which is right: the claim did
+          // not happen.
           setQueue((current) => removeIntent(current, intent));
-          setError('That change was not allowed. Reopen the link and try again.');
+          setError(
+            // Losing a race for the last portion is ordinary, not a fault, and
+            // saying "reopen the link" for it would send somebody off to fix
+            // nothing.
+            String(result.error.message ?? '').includes('ITEM_PORTIONS_FULL')
+              ? 'Somebody took the last portion of that just before you. Nothing has changed.'
+              : 'That change was not allowed. Reopen the link and try again.',
+          );
           continue;
         }
 

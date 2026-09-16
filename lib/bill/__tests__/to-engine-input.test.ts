@@ -47,12 +47,19 @@ const participant = (id: string, name: string) => ({
   created_at: AT,
 });
 
-const itemRow = (id: string, name: string, price_sen: number, position: number) => ({
+const itemRow = (
+  id: string,
+  name: string,
+  price_sen: number,
+  position: number,
+  portions: number | null = null,
+) => ({
   id,
   bill_id: 'bill-1',
   name,
   price_sen,
   position,
+  portions,
   created_at: AT,
 });
 
@@ -241,5 +248,31 @@ describe('toBillInput', () => {
       bundle({ bill: { ...bundle().bill, rounding_mode: 'nearest5sen' } }),
     );
     expect(input.roundingMode).toBe('nearest5sen');
+  });
+});
+
+describe('portions', () => {
+  it('passes a fixed divisor through to the engine', () => {
+    const input = toBillInput(
+      bundle({
+        participants: [participant('a', 'A'), participant('b', 'B')],
+        items: [itemRow('i1', 'Steamboat set', 20000, 0, 4)],
+        claims: [claimRow('i1', 'a'), claimRow('i1', 'b')],
+      }),
+    );
+    expect(input.items[0]!.portions).toBe(4);
+  });
+
+  it('leaves an ordinary line with no divisor at all', () => {
+    // Not zero: the engine rejects zero, and "divide by whoever claimed it" has
+    // to stay expressible.
+    const input = toBillInput(
+      bundle({
+        participants: [participant('a', 'A')],
+        items: [itemRow('i1', 'Roti canai', 250, 0)],
+        claims: [claimRow('i1', 'a')],
+      }),
+    );
+    expect(input.items[0]!.portions).toBeNull();
   });
 });

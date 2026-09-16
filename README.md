@@ -421,6 +421,34 @@ The rule, applied to every submit in the app:
   be overridden for them specifically: applied to an infinitely repeating
   animation it renders at full speed rather than stopping.
 
+## Items that divide a fixed number of ways
+
+By default a line is divided by whoever has claimed it, which is right for an
+ordinary dish and wrong for a shared one: two people claiming a set for four are
+each charged half, and the figure halves again when the other two tap. Correct at
+every instant, and not safe to act on — which people do, so `settled_amount_sen`
+exists to catch the damage afterwards.
+
+Setting `bill_items.portions` removes the cause rather than reporting it:
+
+- Each claimant pays `price / portions`, so the figure shown at the moment
+  somebody taps is the figure they owe, and it never moves.
+- Portions nobody takes stay **unallocated** instead of landing on whoever was
+  fastest. The payer sees them in the usual unclaimed warning.
+- No more claimants than portions. Enforced by a trigger holding `for update` on
+  the line, because guests write claims directly under row level security and
+  the hard case is two people tapping the last portion at once. Verified live:
+  five simultaneous claims on a four-portion line, exactly four succeed.
+- The count cannot be cut below the claims already made, or the engine would
+  refuse to compute the bill at all — it will not re-divide behind people's
+  backs, so that is stopped where it can still be explained.
+
+The payer can claim too. They ate as well, and until now had no way to say so:
+participants were either names they typed for other people or guests who opened
+the link. With a pinned divisor that gap has a price, because their portion of a
+shared dish could never be taken by anyone. `participants.user_id` marks the row
+that is the account holder — at most one per bill, and never granted to guests.
+
 ## Notes on the build
 
 - `@supabase/ssr` is used alongside `@supabase/supabase-js`. It is Supabase's own

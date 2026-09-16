@@ -28,6 +28,12 @@ export interface GenerateOptions {
   allowUnclaimed?: boolean;
   maxPeople?: number;
   maxItems?: number;
+  /**
+   * Give some lines a fixed divisor. Off by default because a line with more
+   * portions than claimants holds money back, which would break the
+   * fully-allocated properties that do not expect it.
+   */
+  allowPortions?: boolean;
 }
 
 export function generateBill(seed: number, options: GenerateOptions = {}): BillInput {
@@ -36,6 +42,7 @@ export function generateBill(seed: number, options: GenerateOptions = {}): BillI
   const pick = <T>(xs: readonly T[]): T => xs[int(0, xs.length - 1)]!;
 
   const allowUnclaimed = options.allowUnclaimed ?? false;
+  const allowPortions = options.allowPortions ?? false;
   const peopleCount = int(1, options.maxPeople ?? 8);
   const people: Person[] = Array.from({ length: peopleCount }, (_, i) => ({
     // Ids are deliberately not in sorted order relative to index, so tie-breaks
@@ -56,7 +63,15 @@ export function generateBill(seed: number, options: GenerateOptions = {}): BillI
     if (claimantIds.length === 0 && !allowUnclaimed) {
       claimantIds.push(pick(people).id);
     }
-    return { id: `i${i}`, name: `Item ${i}`, priceSen, claimantIds };
+
+    // Never fewer portions than claimants -- that combination is rejected by the
+    // engine on purpose, and is covered by its own test rather than here.
+    let portions: number | null = null;
+    if (allowPortions && rng() < 0.4) {
+      portions = Math.max(1, claimantIds.length) + int(0, 3);
+    }
+
+    return { id: `i${i}`, name: `Item ${i}`, priceSen, claimantIds, portions };
   });
 
   const serviceChargeRate = pick(RATES);

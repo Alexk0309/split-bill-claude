@@ -51,6 +51,13 @@ export interface BillItemRow {
   name: string;
   price_sen: number;
   position: number;
+  /**
+   * How many ways this line divides, when known up front. Null means divide by
+   * whoever claims it, which leaves the share provisional until everyone has
+   * tapped; a number pins it from the first tap and caps how many people may
+   * claim the line at all.
+   */
+  portions: number | null;
   created_at: string;
 }
 
@@ -66,6 +73,11 @@ export interface ParticipantRow {
    * only way to tell afterwards whether a transfer still covers the debt.
    */
   settled_amount_sen: number | null;
+  /**
+   * Set on the row that represents the bill's owner. Never granted to guests,
+   * so it is absent from anything loaded through the share link.
+   */
+  user_id?: string | null;
   created_at: string;
 }
 

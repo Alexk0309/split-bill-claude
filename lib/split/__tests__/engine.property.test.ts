@@ -55,6 +55,37 @@ describe('property: the shares always sum to the bill total', () => {
   });
 });
 
+describe('property: fixed portions hold money back without losing any', () => {
+  it(`holds for ${CASES} generated bills with portioned lines`, () => {
+    let sawPartial = 0;
+    for (let seed = 1; seed <= CASES; seed += 1) {
+      const input = generateBill(seed + 2_000_000, { allowUnclaimed: true, allowPortions: true });
+      const result = computeSplit(input);
+
+      const partial = result.unclaimedItems.some(
+        (u) => u.portions !== null && u.claimedPortions > 0,
+      );
+      if (partial) sawPartial += 1;
+
+      // The constraint that matters: every sen is either charged to somebody or
+      // sitting in the unclaimed bucket. A fixed divisor must not create money
+      // (by over-charging the claimants) or destroy it (by dropping the
+      // portions nobody took).
+      const shares = result.people.reduce((acc, p) => acc + p.finalShareSen, 0);
+      expect(shares + result.unallocatedSen, context(seed, result)).toBe(
+        result.settlementTotalSen,
+      );
+      expect(result.unallocatedSen, context(seed, result)).toBeGreaterThanOrEqual(0);
+      for (const p of result.people) {
+        expect(p.finalShareSen, context(seed, result)).toBeGreaterThanOrEqual(0);
+      }
+    }
+    // The partly-claimed portioned line is the case this feature is about; a
+    // generator that never produced one would make the whole block vacuous.
+    expect(sawPartial).toBeGreaterThan(CASES / 10);
+  });
+});
+
 describe('property: belanja moves money without creating or destroying it', () => {
   it(`holds for ${CASES} generated bills`, () => {
     let sawBelanja = 0;

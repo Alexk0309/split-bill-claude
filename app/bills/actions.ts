@@ -201,6 +201,133 @@ export async function deleteBill(formData: FormData): Promise<void> {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Portions and the payer's own claims                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Turns a database exception into something worth reading.
+ *
+ * Both of these are raised by triggers rather than checked here, because guests
+ * write claims directly under row level security and a rule that only exists in
+ * the client is not a rule.
+ */
+function explain(message: string): string {
+  if (message.includes('ITEM_PORTIONS_FULL')) {
+    return 'Every portion of this item has been claimed. Raise the number to add more people.';
+  }
+  if (message.includes('PORTIONS_BELOW_CLAIMS')) {
+    return 'More people have already claimed this item than that. Remove someone first.';
+  }
+  return message;
+}
+
+/**
+ * Pins how many ways a line divides, or unpins it.
+ *
+ * Unpinned, an item is divided by whoever has claimed it so far, so a share
+ * keeps moving until the last person taps. Pinned, the figure shown at the
+ * moment somebody claims is the figure they owe, and portions nobody takes stay
+ * unallocated instead of landing on whoever was fastest.
+ */
+export async function setItemPortions(
+  _previous: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase } = await requireUser();
+  const billId = text(formData, 'billId');
+  const itemId = text(formData, 'itemId');
+  if (!billId || !itemId) return fail('Missing item');
+
+  const raw = text(formData, 'portions');
+  let portions: number | null = null;
+  if (raw !== '' && raw !== 'auto') {
+    const parsed = Number(raw);
+    if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 99) {
+      return fail('Split a line between 1 and 99 ways');
+    }
+    portions = parsed;
+  }
+
+  const { error } = await supabase
+    .from('bill_items')
+    .update({ portions })
+    .eq('id', itemId)
+    .eq('bill_id', billId);
+
+  if (error) return fail(explain(error.message));
+  refresh(billId);
+  return OK;
+}
+
+/**
+ * Puts the payer on their own bill.
+ *
+ * They ate too, and until now had no way to claim anything: participants were
+ * either names they typed for other people or guests who opened the link. With
+ * a pinned divisor that gap has a price -- their portion of a shared dish would
+ * sit unallocated forever, because nobody could take it.
+ */
+export async function addMeToBill(formData: FormData): Promise<void> {
+  const { supabase, user } = await requireUser();
+  const billId = text(formData, 'billId');
+  if (!billId) return;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const name = String(profile?.display_name ?? '').trim() || 'Me';
+
+  // A unique index allows one owner row per bill, so a double submit is a
+  // no-op rather than a second copy of the payer.
+  await supabase
+    .from('participants')
+    .insert({ bill_id: billId, display_name: name, user_id: user.id });
+
+  refresh(billId);
+}
+
+/** Claims or unclaims a line for the payer themselves. */
+export async function toggleMyClaim(
+  _previous: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  const billId = text(formData, 'billId');
+  const itemId = text(formData, 'itemId');
+  if (!billId || !itemId) return fail('Missing item');
+
+  const { data: me } = await supabase
+    .from('participants')
+    .select('id')
+    .eq('bill_id', billId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!me) return fail('Add yourself to this bill first');
+  const participantId = String(me.id);
+
+  if (text(formData, 'claimed') === 'true') {
+    await supabase
+      .from('claims')
+      .delete()
+      .eq('bill_id', billId)
+      .eq('item_id', itemId)
+      .eq('participant_id', participantId);
+  } else {
+    const { error } = await supabase
+      .from('claims')
+      .insert({ bill_id: billId, item_id: itemId, participant_id: participantId });
+    if (error) return fail(explain(error.message));
+  }
+
+  refresh(billId);
+  return OK;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Receipt review                                                             */
 /* -------------------------------------------------------------------------- */
 

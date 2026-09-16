@@ -13,6 +13,18 @@ export interface LineItem {
   priceSen: Sen;
   /** Empty means unclaimed. Unclaimed items are never silently split. */
   claimantIds: string[];
+  /**
+   * How many ways this line is divided, when that is known up front -- a
+   * steamboat set for four, a bottle bought between six.
+   *
+   * Null means divide by whoever has claimed it, which is the right answer for
+   * an ordinary dish but makes a share provisional: two people claiming a set
+   * for four are each charged half until the other two tap it. Setting this
+   * pins the divisor, so the figure somebody is shown is the figure they owe,
+   * and portions nobody claims stay unallocated rather than being quietly
+   * redistributed onto whoever was fastest.
+   */
+  portions?: number | null;
 }
 
 export type AdjustmentScope = 'proportional' | { personIds: string[] };
@@ -51,7 +63,18 @@ export interface BillInput {
 export interface UnclaimedItem {
   id: string;
   name: string;
+  /** The whole line, not the unclaimed part of it. */
   priceSen: Sen;
+  /** Fixed divisor, or null when the line is divided by its claimants. */
+  portions: number | null;
+  /** How many of those portions somebody has taken. */
+  claimedPortions: number;
+  /**
+   * Roughly what is still unspoken for on this line. Rounded for display; the
+   * authoritative figure is `SplitResult.unallocatedSen`, which comes out of
+   * the largest-remainder pass with the rest of the money.
+   */
+  unclaimedSen: Sen;
 }
 
 /** One line of "here is where your money went", per item you claimed. */

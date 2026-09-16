@@ -49,6 +49,9 @@ export function toBillInput(bundle: BillBundle): BillInput {
     // Sorted so the same data always produces the same array, which keeps
     // rendered output and engine tie-breaks stable between loads.
     claimantIds: (claimantsByItem.get(row.id) ?? []).sort(),
+    // Null and undefined both mean "divide by the claimants"; the database
+    // stores null, and rows read before this column existed have neither.
+    portions: row.portions ?? null,
   }));
 
   const mappedAdjustments: Adjustment[] = [];

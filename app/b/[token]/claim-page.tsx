@@ -458,8 +458,14 @@ export function ClaimPage({
             const claimants = claimantsByItem.get(item.id) ?? [];
             const mine = claimants.some((p) => p.id === identity.participantId);
             const unclaimed = claimants.length === 0;
-            const perHead =
-              claimants.length > 1 ? Math.round(item.price_sen / claimants.length) : null;
+
+            // A line with a fixed divisor is always divided that many ways, so
+            // the figure here is final from the first tap. Without one it is
+            // divided by whoever has claimed so far and will keep moving.
+            const divisor = item.portions ?? claimants.length;
+            const perHead = divisor > 1 ? Math.round(item.price_sen / divisor) : null;
+            // Every portion spoken for, and none of them yours.
+            const full = item.portions !== null && !mine && claimants.length >= item.portions;
             // Only dim while a write is genuinely in flight. Offline, the taps
             // are queued and the note in the header explains it; dimming the
             // whole list would read as broken.
@@ -471,6 +477,7 @@ export function ClaimPage({
                   type="button"
                   onClick={() => toggle(item.id)}
                   aria-pressed={mine}
+                  disabled={full}
                   className="tap flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left"
                   style={{
                     background: mine ? 'var(--accent-wash)' : 'var(--surface)',
@@ -479,7 +486,10 @@ export function ClaimPage({
                     // distinct from the solid, filled state of your own claims
                     // without relying on colour alone.
                     borderStyle: unclaimed ? 'dashed' : 'solid',
-                    opacity: inFlight ? 0.6 : 1,
+                    // A full line is dimmed rather than hidden: it is still part
+                    // of the bill and somebody needs to see who took it.
+                    opacity: inFlight ? 0.6 : full ? 0.55 : 1,
+                    cursor: full ? 'default' : undefined,
                   }}
                 >
                   <span
@@ -500,7 +510,13 @@ export function ClaimPage({
                       className="mt-0.5 block text-[13px]"
                       style={{ color: 'var(--text-muted)' }}
                     >
-                      {perHead !== null ? (
+                      {item.portions !== null ? (
+                        <>
+                          {claimants.length} of {item.portions} taken ·{' '}
+                          <Money sen={perHead ?? item.price_sen} /> each
+                          {full ? <span style={{ color: 'var(--accent-strong)' }}> · full</span> : null}
+                        </>
+                      ) : perHead !== null ? (
                         <>
                           {claimants.length} people · <Money sen={perHead} /> each
                         </>
@@ -512,7 +528,7 @@ export function ClaimPage({
                         />
                       )}
                     </span>
-                    {perHead !== null ? (
+                    {perHead !== null || item.portions !== null ? (
                       <span className="mt-1 block">
                         <AvatarRow
                           people={claimants.map((p) => ({ id: p.id, name: p.display_name }))}

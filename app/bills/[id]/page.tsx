@@ -62,7 +62,8 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
     splitError = error instanceof Error ? error.message : 'Could not work out the totals';
   }
 
-  const [{ data: proofRows }, { data: profile }, { data: reminderRows }] = await Promise.all([
+  const [{ data: proofRows }, { data: profile }, { data: reminderRows }, { data: meRow }] =
+    await Promise.all([
     supabase
       .from('payment_proofs')
       .select('*')
@@ -73,6 +74,16 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
       .from('participants')
       .select('id, reminders_muted, reminder_snoozed_until, reminders_sent, last_reminded_at')
       .eq('bill_id', bill.id),
+    // Asked separately rather than through the shared loader on purpose: that
+    // loader reads the same named columns for the payer and for guests so there
+    // is only one scoping path to get wrong, and `user_id` is not a column
+    // guests may read.
+    supabase
+      .from('participants')
+      .select('id')
+      .eq('bill_id', bill.id)
+      .eq('user_id', user.id)
+      .maybeSingle(),
   ]);
   const proofs = (proofRows ?? []) as PaymentProofRow[];
   const reminderState = new Map(
@@ -101,7 +112,12 @@ export default async function BillEditorPage({ params }: { params: Promise<{ id:
 
         <BillSettingsForm bill={bill} />
 
-        <ItemsEditor billId={bill.id} items={items} claimantsByItem={claimantsByItem} />
+        <ItemsEditor
+          billId={bill.id}
+          items={items}
+          claimantsByItem={claimantsByItem}
+          myParticipantId={meRow ? String(meRow.id) : null}
+        />
 
         <PeopleEditor billId={bill.id} participants={participants} />
 

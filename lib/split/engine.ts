@@ -99,6 +99,17 @@ function normalise(input: BillInput): NormalisedInput {
     itemIds.add(item.id);
     assertNonNegativeSen(item.priceSen, `Item "${item.name}" price`);
 
+    const portions = item.portions ?? null;
+    if (portions !== null) {
+      if (!Number.isSafeInteger(portions) || portions < 1) {
+        throw new SplitEngineError(
+          'INVALID_PORTIONS',
+          `Item "${item.name}" must divide into a whole number of portions, at least one; ` +
+            `received ${String(portions)}`,
+        );
+      }
+    }
+
     // A person claiming the same item twice is a data hygiene artefact (the DB has
     // a composite PK preventing it); collapse it rather than charging them twice.
     const claimantIds: string[] = [];
@@ -111,7 +122,21 @@ function normalise(input: BillInput): NormalisedInput {
       }
       if (!claimantIds.includes(id)) claimantIds.push(id);
     }
-    return { ...item, claimantIds };
+
+    // Refused rather than absorbed. More claimants than portions means either
+    // the cap failed or the portion count is wrong, and the honest answer is to
+    // say so: silently falling back to dividing by the claimants would charge
+    // people a different amount from the one they were shown.
+    if (portions !== null && claimantIds.length > portions) {
+      throw new SplitEngineError(
+        'TOO_MANY_CLAIMANTS',
+        `Item "${item.name}" divides into ${portions} ` +
+          `${portions === 1 ? 'portion' : 'portions'} but ${claimantIds.length} people have ` +
+          'claimed it',
+      );
+    }
+
+    return { ...item, claimantIds, portions };
   });
 
   const adjustmentIds = new Set<string>();
@@ -314,9 +339,30 @@ export function computeSplit(input: BillInput): SplitResult {
   const cashRoundingDeltaSen = settlementTotalSen - billTotalSen;
 
   // --- Buckets: the people, plus a pseudo-bucket for unclaimed items -----
+  // A line is short when nobody has claimed it, and -- once its divisor is
+  // pinned -- also when only some of its portions have been taken.
   const unclaimedItems: UnclaimedItem[] = bill.items
-    .filter((item) => item.claimantIds.length === 0)
-    .map((item) => ({ id: item.id, name: item.name, priceSen: item.priceSen }));
+    .map((item) => {
+      const portions = item.portions ?? null;
+      const claimedPortions = item.claimantIds.length;
+      // With no fixed divisor a line is all-or-nothing, so one notional portion.
+      const divisor = portions ?? 1;
+      const shortPortions = divisor - Math.min(claimedPortions, divisor);
+      return { item, portions, claimedPortions, shortPortions, divisor };
+    })
+    .filter(({ claimedPortions, shortPortions }) => shortPortions > 0 && claimedPortions >= 0)
+    .map(({ item, portions, claimedPortions, shortPortions, divisor }) => ({
+      id: item.id,
+      name: item.name,
+      priceSen: item.priceSen,
+      portions,
+      claimedPortions,
+      unclaimedSen: Number(
+        R.roundHalfUpToBigInt(
+          R.div(R.mul(R.fromInt(item.priceSen), R.fromInt(shortPortions)), R.fromInt(divisor)),
+        ),
+      ),
+    }));
   const hasUnclaimed = unclaimedItems.length > 0;
 
   const bucketIds: string[] = bill.people.map((p) => p.id);
@@ -335,7 +381,13 @@ export function computeSplit(input: BillInput): SplitResult {
       base[i] = R.add(base[i]!, price);
       continue;
     }
-    const perHead = R.div(price, R.fromInt(item.claimantIds.length));
+
+    // Pinned when the line says how many ways it divides, otherwise however
+    // many people have claimed it. This is the whole difference between a share
+    // that is final the moment it is shown and one that keeps moving.
+    const divisor = item.portions ?? item.claimantIds.length;
+    const perHead = R.div(price, R.fromInt(divisor));
+
     for (const claimantId of item.claimantIds) {
       const i = bucketIndex.get(claimantId)!;
       base[i] = R.add(base[i]!, perHead);
@@ -347,6 +399,15 @@ export function computeSplit(input: BillInput): SplitResult {
         displayShareSen: Number(R.roundHalfUpToBigInt(perHead)),
         exactShareSen: R.toFixed(perHead, EXACT_DP),
       });
+    }
+
+    // Portions nobody has taken. They sit in the unclaimed bucket rather than
+    // being spread over whoever did claim, which is exactly what stops an early
+    // claimant being charged for someone else's helping.
+    const shortPortions = divisor - item.claimantIds.length;
+    if (shortPortions > 0) {
+      const i = bucketIndex.get(UNCLAIMED_BUCKET_ID)!;
+      base[i] = R.add(base[i]!, R.mul(perHead, R.fromInt(shortPortions)));
     }
   }
 

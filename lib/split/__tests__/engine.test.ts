@@ -202,7 +202,16 @@ describe('unclaimed items', () => {
 
   it('never silently splits them', () => {
     expect(result.unclaimedItems).toEqual([
-      { id: 'i2', name: 'Nobody ordered this', priceSen: 500 },
+      {
+        id: 'i2',
+        name: 'Nobody ordered this',
+        priceSen: 500,
+        // No fixed divisor, so the line is all-or-nothing and the whole of it
+        // is outstanding.
+        portions: null,
+        claimedPortions: 0,
+        unclaimedSen: 500,
+      },
     ]);
   });
 
@@ -708,5 +717,140 @@ describe('input validation', () => {
     );
     expect(due(result, 'a')).toBe(500);
     expect(due(result, 'b')).toBe(500);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixed portions
+// ---------------------------------------------------------------------------
+
+const portioned = (
+  id: string,
+  name: string,
+  priceSen: number,
+  portions: number,
+  claimantIds: string[],
+): LineItem => ({ id, name, priceSen, claimantIds, portions });
+
+describe('an item with a fixed number of portions', () => {
+  const four = [person('ali'), person('siti'), person('chong'), person('devi')];
+
+  /** The reported case: a RM200 set for four, claimed by however many so far. */
+  const steamboat = (claimants: string[]) =>
+    computeSplit(
+      bill({
+        people: four,
+        items: [portioned('i1', 'Steamboat set', 20000, 4, claimants)],
+      }),
+    );
+
+  it('charges a quarter from the very first tap, not half to the first two', () => {
+    // Without a fixed divisor these same two claimants are charged RM100 each,
+    // and the figure halves later. That moving target is the whole reason this
+    // exists, so it is the first thing asserted.
+    const two = steamboat(['ali', 'siti']);
+    expect(due(two, 'ali')).toBe(5000);
+    expect(due(two, 'siti')).toBe(5000);
+  });
+
+  it('does not change anybody\'s share as the rest of the table joins', () => {
+    const shares = [
+      ['ali'],
+      ['ali', 'siti'],
+      ['ali', 'siti', 'chong'],
+      ['ali', 'siti', 'chong', 'devi'],
+    ].map((claimants) => due(steamboat(claimants), 'ali'));
+
+    expect(shares).toEqual([5000, 5000, 5000, 5000]);
+  });
+
+  it('holds the untaken portions back instead of spreading them over the fast', () => {
+    const two = steamboat(['ali', 'siti']);
+    expect(two.unallocatedSen).toBe(10000);
+    expect(two.unclaimedItems).toEqual([
+      {
+        id: 'i1',
+        name: 'Steamboat set',
+        priceSen: 20000,
+        portions: 4,
+        claimedPortions: 2,
+        unclaimedSen: 10000,
+      },
+    ]);
+  });
+
+  it('allocates the lot once every portion is taken', () => {
+    const all = steamboat(['ali', 'siti', 'chong', 'devi']);
+    expect(all.unallocatedSen).toBe(0);
+    expect(all.unclaimedItems).toEqual([]);
+    expect(all.people.reduce((acc, p) => acc + p.amountDueSen, 0)).toBe(all.billTotalSen);
+  });
+
+  it('keeps the books balanced while partly claimed, charges and all', () => {
+    const result = computeSplit(
+      bill({
+        people: four,
+        items: [portioned('i1', 'Steamboat set', 20000, 4, ['ali', 'siti'])],
+        serviceChargeRate: 0.1,
+        serviceTaxRate: 0.06,
+      }),
+    );
+    const shares = result.people.reduce((acc, p) => acc + p.amountDueSen, 0);
+    expect(shares + result.unallocatedSen).toBe(result.billTotalSen);
+    // Neither claimant is charged tax on a portion nobody has taken.
+    expect(due(result, 'ali')).toBe(due(result, 'siti'));
+    expect(due(result, 'chong')).toBe(0);
+  });
+
+  it('divides a price that does not divide evenly without leaking a sen', () => {
+    const result = computeSplit(
+      bill({
+        people: [person('a'), person('b'), person('c')],
+        items: [portioned('i1', 'Awkward', 1000, 3, ['a', 'b', 'c'])],
+      }),
+    );
+    expect(result.people.reduce((acc, p) => acc + p.amountDueSen, 0)).toBe(1000);
+    expect(result.unallocatedSen).toBe(0);
+  });
+
+  it('behaves like an ordinary line when the count matches the claimants', () => {
+    const fixed = computeSplit(
+      bill({ people: [person('a'), person('b')], items: [portioned('i1', 'X', 999, 2, ['a', 'b'])] }),
+    );
+    const free = computeSplit(
+      bill({ people: [person('a'), person('b')], items: [item('i1', 'X', 999, ['a', 'b'])] }),
+    );
+    expect(fixed.people.map((p) => p.amountDueSen)).toEqual(free.people.map((p) => p.amountDueSen));
+  });
+
+  it('refuses more claimants than portions rather than quietly re-dividing', () => {
+    // The database caps this, so reaching the engine means something is wrong.
+    // Falling back to dividing by the claimants would charge people a different
+    // figure from the one they were shown, which is the bug this feature exists
+    // to prevent.
+    expect(() =>
+      computeSplit(
+        bill({
+          people: four,
+          items: [portioned('i1', 'Set for two', 1000, 2, ['ali', 'siti', 'chong'])],
+        }),
+      ),
+    ).toThrow(SplitEngineError);
+  });
+
+  it('rejects a portion count that is not a whole number of at least one', () => {
+    for (const bad of [0, -1, 2.5, Number.NaN]) {
+      expect(() =>
+        computeSplit(
+          bill({ people: [person('a')], items: [portioned('i1', 'X', 100, bad, ['a'])] }),
+        ),
+      ).toThrow(SplitEngineError);
+    }
+  });
+
+  it('leaves the whole line outstanding when nobody has claimed it yet', () => {
+    const none = steamboat([]);
+    expect(none.unallocatedSen).toBe(20000);
+    expect(none.unclaimedItems[0]).toMatchObject({ claimedPortions: 0, unclaimedSen: 20000 });
   });
 });
