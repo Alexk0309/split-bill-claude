@@ -1,9 +1,18 @@
 @import 'tailwindcss';
 
 /*
- * Built for a phone held one-handed at a cashier: warm, high contrast, and
- * legible in daylight. Every interactive target is at least 44px tall, and
- * nothing depends on hover.
+ * The foundations.
+ *
+ * Built for a phone held one-handed at a cashier: warm, high contrast, legible
+ * in daylight, every target comfortable for a thumb, nothing depending on
+ * hover. What follows adds the layer that makes a screen feel handled rather
+ * than read -- type that changes shape as it changes size, chrome that floats
+ * as a material over the content instead of eating a strip of it, surfaces that
+ * respond on the press rather than the release, and motion that starts from
+ * where things actually are.
+ *
+ * The palette is unchanged. None of this is about looking like someone else's
+ * app; it is about the parts of an interface people feel without naming.
  */
 
 @theme {
@@ -32,9 +41,15 @@
   --color-night-700: #2c2520;
   --color-night-600: #3d342c;
 
+  /*
+   * The platform font first, and not out of laziness. It already ships optical
+   * sizing, per-size tracking tables and legibility tuning that a webfont would
+   * have to be hand-tuned to match -- and it is the face every other app on the
+   * phone is set in, which is worth more here than a distinctive one.
+   */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
+    -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
 }
 
 :root {
@@ -44,12 +59,53 @@
   --border: var(--color-sand-200);
   --text: var(--color-ink-900);
   --text-muted: var(--color-ink-500);
+  --text-faint: var(--color-ink-400);
   --accent: var(--color-ember-600);
   --accent-strong: var(--color-ember-700);
   --accent-wash: var(--color-ember-50);
   --accent-wash-strong: var(--color-ember-100);
   --good: var(--color-leaf-600);
   --good-wash: var(--color-leaf-100);
+
+  /*
+   * Separators are translucent rather than a flat colour, so one hairline works
+   * on a card, on a sunk fill and over a blurred material without being
+   * re-specified for each -- and so it never reads darker than the text beside
+   * it.
+   */
+  --separator: rgb(28 22 17 / 0.1);
+
+  /* Tinted fills for content that is grouped rather than raised. */
+  --fill: rgb(28 22 17 / 0.05);
+  --fill-strong: rgb(28 22 17 / 0.08);
+
+  /*
+   * Chrome is a material with the page moving under it, not an opaque bar that
+   * takes a strip of the screen away. The saturation boost is what keeps warm
+   * content warm through the blur instead of going grey.
+   */
+  --material: rgb(253 251 247 / 0.72);
+  --material-blur: saturate(180%) blur(24px);
+  /* Light catching the top edge, the way a real pane of anything would. */
+  --material-edge: rgb(255 255 255 / 0.65);
+
+  --scrim: rgb(28 22 17 / 0.38);
+
+  /*
+   * A bigger surface reads as a thicker one. A card is a few millimetres off
+   * the page; a sheet is a slab lifted over all of it.
+   */
+  --shadow-card: 0 1px 2px rgb(28 22 17 / 0.04), 0 1px 1px rgb(28 22 17 / 0.03);
+  --shadow-raised: 0 2px 8px rgb(28 22 17 / 0.07), 0 1px 2px rgb(28 22 17 / 0.05);
+  --shadow-sheet: 0 -1px 0 var(--separator), 0 -12px 40px rgb(28 22 17 / 0.16);
+
+  /*
+   * For the transitions no finger is touching. Anything a gesture can reach is
+   * sprung in JavaScript instead, because a curve with a fixed duration cannot
+   * be grabbed halfway and sent back.
+   */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(1, 0, 0.8, 1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,17 +116,32 @@
     --border: var(--color-night-600);
     --text: var(--color-sand-100);
     --text-muted: #a29384;
+    --text-faint: #7d7064;
     --accent: var(--color-ember-500);
-    --accent-strong: var(--color-ember-500);
+    --accent-strong: #ff8c33;
     --accent-wash: #2b1d12;
     --accent-wash-strong: #3a2415;
     --good: #4ade80;
     --good-wash: #14301f;
+
+    --separator: rgb(247 242 233 / 0.12);
+    --fill: rgb(247 242 233 / 0.06);
+    --fill-strong: rgb(247 242 233 / 0.1);
+
+    --material: rgb(31 26 22 / 0.74);
+    --material-edge: rgb(255 255 255 / 0.08);
+
+    /* Darker, because the content behind it is already dark. */
+    --scrim: rgb(0 0 0 / 0.5);
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-raised: 0 2px 10px rgb(0 0 0 / 0.36);
+    --shadow-sheet: 0 -1px 0 var(--separator), 0 -12px 40px rgb(0 0 0 / 0.5);
   }
 }
 
 html {
-  /* Keeps the pinned total bar clear of the iOS home indicator. */
+  /* Keeps the floating total bar clear of the iOS home indicator. */
   scroll-padding-bottom: 7rem;
 }
 
@@ -79,8 +150,16 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Letters that change shape with their size, where the face supports it. */
+  font-optical-sizing: auto;
   /* Stops a double-tap on an item row from zooming the page. */
   touch-action: manipulation;
+  /*
+   * The grey flash on tap is the platform's fallback for apps that show no
+   * press state of their own. Everything here shows one, on pointer-down, and
+   * two overlapping responses read as a glitch.
+   */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Native inputs on Android default to a tiny font that triggers zoom on focus. */
@@ -93,11 +172,197 @@ button {
 }
 
 @layer components {
+  /* ---------------------------------------------------------------------- */
+  /* Type                                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * Size, weight and leading move together, and tracking is specific to each
+   * size. This is the part people never consciously see: as letters grow they
+   * drift apart, so large text needs pulling in, and small text needs letting
+   * out or it sets solid. One letter-spacing value across a ramp is wrong at
+   * both ends of it.
+   *
+   * Everything is in rem and spaced in rem, so a larger system text size scales
+   * the layout with the words rather than bursting it.
+   */
+
+  .type-display {
+    font-size: 2rem;
+    line-height: 1.12;
+    letter-spacing: -0.022em;
+    font-weight: 700;
+  }
+
+  .type-title {
+    font-size: 1.625rem;
+    line-height: 1.18;
+    letter-spacing: -0.019em;
+    font-weight: 700;
+  }
+
+  .type-title-2 {
+    font-size: 1.3125rem;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+  }
+
+  .type-headline {
+    font-size: 1.0625rem;
+    line-height: 1.35;
+    letter-spacing: -0.006em;
+    font-weight: 600;
+  }
+
+  .type-body {
+    font-size: 1.0625rem;
+    line-height: 1.47;
+    letter-spacing: -0.004em;
+  }
+
+  .type-callout {
+    font-size: 1rem;
+    line-height: 1.44;
+    letter-spacing: 0;
+  }
+
+  .type-subhead {
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    letter-spacing: 0.002em;
+  }
+
+  .type-footnote {
+    font-size: 0.8125rem;
+    line-height: 1.38;
+    letter-spacing: 0.006em;
+  }
+
+  .type-caption {
+    font-size: 0.75rem;
+    line-height: 1.34;
+    letter-spacing: 0.01em;
+  }
+
+  /* Emphasis by weight rather than size: presence without taking more room. */
+  .type-emph {
+    font-weight: 600;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Money set large enough to be the answer to the question on the screen. */
+  .type-amount {
+    font-size: 1.75rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.38;
+    letter-spacing: 0.006em;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+  }
+
+  /*
+   * A section heading in a grouped layout, which on a phone is set small,
+   * spaced out and quiet -- it names the group below it and then gets out of
+   * the way. Set in caps, where the extra tracking is not optional.
+   */
+  .group-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding-inline: 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Surfaces                                                                */
+  /* ---------------------------------------------------------------------- */
+
   .card {
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid var(--separator);
     border-radius: 1rem;
+    box-shadow: var(--shadow-card);
   }
+
+  /*
+   * Related rows in one rounded container with hairlines between them, rather
+   * than a stack of separate cards. Proximity is the claim being made: these
+   * things belong together, and the gaps between cards say the opposite.
+   */
+  .list {
+    background: var(--surface);
+    border: 1px solid var(--separator);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .list > * + * {
+    border-top: 1px solid var(--separator);
+  }
+
+  /* A tinted group, for content that is inset rather than raised. */
+  .sunk {
+    background: var(--fill);
+    border-radius: 0.75rem;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Material chrome                                                         */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * A floating layer with the content passing beneath it. The blur is what
+   * makes it read as a layer at all: an opaque bar of the page colour is just
+   * the page, cut off. Seeing the list continue under the total tells you there
+   * is more of it, which a hard edge cannot.
+   */
+  .material {
+    background: var(--material);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    box-shadow: inset 0 1px 0 var(--material-edge);
+  }
+
+  /*
+   * Where content meets floating chrome, fade it out instead of ruling a line
+   * under it. A 1px border is a claim that the content ends there; it does not.
+   */
+  .scroll-edge {
+    pointer-events: none;
+    height: 1.5rem;
+    background: linear-gradient(to bottom, transparent, var(--bg));
+  }
+
+  /*
+   * Text set over a blurred material needs more weight and a touch more
+   * tracking than the same text on a solid surface, because whatever is behind
+   * it keeps changing. Flat grey on glass is where legibility goes.
+   */
+  .on-material {
+    letter-spacing: 0.004em;
+    font-weight: 500;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Controls                                                                */
+  /* ---------------------------------------------------------------------- */
 
   .field {
     width: 100%;
@@ -107,10 +372,15 @@ button {
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     color: var(--text);
+    transition: border-color 0.16s var(--ease-out);
   }
 
   .field::placeholder {
-    color: var(--text-muted);
+    color: var(--text-faint);
+  }
+
+  .field:focus {
+    border-color: var(--accent);
   }
 
   .field:focus-visible,
@@ -128,30 +398,30 @@ button {
     min-height: 3rem;
     padding: 0 1.125rem;
     border-radius: 0.75rem;
+    font-size: 1.0625rem;
+    letter-spacing: -0.006em;
     font-weight: 600;
     cursor: pointer;
     border: 1px solid transparent;
-    transition: transform 0.06s ease;
   }
 
-  .btn:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
+  .btn:disabled,
+  .btn[aria-disabled='true'] {
+    opacity: 0.4;
     cursor: default;
   }
 
   .btn-primary {
     background: var(--accent);
     color: #fff;
+    box-shadow: var(--shadow-raised);
   }
 
   .btn-secondary {
     background: var(--surface);
     border-color: var(--border);
     color: var(--text);
+    box-shadow: var(--shadow-card);
   }
 
   .btn-ghost {
@@ -165,17 +435,48 @@ button {
     cursor: pointer;
   }
 
-  .label {
-    display: block;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    margin-bottom: 0.375rem;
+  /* ---------------------------------------------------------------------- */
+  /* Press                                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * The press state, driven from pointer-down rather than from `:active`.
+   *
+   * Two reasons it is not just `:active`. Safari on iOS withholds it from
+   * elements it does not consider interactive, silently and inconsistently.
+   * And a real press can be taken back: slide off the target before lifting and
+   * nothing should happen, which means the highlight has to come back off too,
+   * and come back on if the thumb returns. `data-pressed` is set by a pointer
+   * listener that knows all of that; see components/press-feedback.tsx.
+   *
+   * The scale is per element size. A full-width row shrinking as hard as a
+   * small button looks like the screen flinched -- the same displacement reads
+   * as much larger over a larger area.
+   */
+  [data-press] {
+    transition:
+      transform 0.14s var(--ease-out),
+      background-color 0.14s var(--ease-out),
+      opacity 0.14s var(--ease-out);
   }
 
-  .tabular {
-    font-variant-numeric: tabular-nums;
+  [data-press='button'][data-pressed] {
+    transform: scale(0.96);
+    opacity: 0.88;
   }
+
+  [data-press='row'][data-pressed] {
+    transform: scale(0.985);
+    background-color: var(--fill);
+  }
+
+  [data-press='plain'][data-pressed] {
+    opacity: 0.55;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Status                                                                  */
+  /* ---------------------------------------------------------------------- */
 
   /*
    * Feedback for a tap that is waiting on the network. The label beside it
@@ -196,11 +497,11 @@ button {
   /* The shape of the content that is coming, so a page load does not read as
      a blank screen. */
   .skeleton {
-    background: var(--surface-sunk);
+    background: var(--fill);
     background-image: linear-gradient(
       90deg,
       transparent 0%,
-      var(--border) 50%,
+      var(--fill-strong) 50%,
       transparent 100%
     );
     background-size: 200% 100%;
@@ -225,6 +526,40 @@ button {
   }
 }
 
+/*
+ * A newly claimed line, confirming the tap on the same frame the row changes.
+ * Slight overshoot, because a tap is a small impact and the tick is answering
+ * it -- this is one of the few places a bounce is earned.
+ */
+@keyframes tick-in {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.tick-in {
+  animation: tick-in 0.34s var(--ease-out);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Accessibility settings                                                      */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Reduced motion is a request for a gentler equivalent, not for a dead screen.
+ * Travel, overshoot and parallax go; the cross-fades and colour changes that
+ * tell you something happened stay. Sheets keep following the finger, because
+ * a drag is the user's own motion rather than the interface's.
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -247,5 +582,63 @@ button {
 
   .skeleton {
     background-image: none;
+  }
+
+  /* A press still has to answer, so keep the highlight and drop the movement. */
+  [data-press][data-pressed] {
+    transform: none !important;
+  }
+}
+
+/*
+ * Someone who has asked for less transparency is usually asking because
+ * blurred chrome is hard for them to read through. Frost it over: solid
+ * background, no blur, a hairline to keep the edge defined.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material: var(--bg);
+    --material-blur: none;
+    --material-edge: var(--separator);
+    --scrim: rgb(28 22 17 / 0.6);
+  }
+
+  .material {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-top: 1px solid var(--separator);
+  }
+}
+
+/*
+ * More contrast means defined edges and near-solid surfaces. Hairlines that
+ * were deliberately faint become visible ones, and muted text stops being
+ * muted.
+ */
+@media (prefers-contrast: more) {
+  :root {
+    --separator: rgb(28 22 17 / 0.35);
+    --text-muted: var(--color-ink-700);
+    --text-faint: var(--color-ink-500);
+    --material: var(--bg);
+    --material-blur: none;
+  }
+
+  .card,
+  .list,
+  .field {
+    border-color: var(--separator);
+  }
+
+  .btn-ghost {
+    color: var(--text);
+  }
+}
+
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root {
+    --separator: rgb(247 242 233 / 0.4);
+    --text-muted: var(--color-sand-200);
+    --text-faint: var(--color-sand-300);
   }
 }

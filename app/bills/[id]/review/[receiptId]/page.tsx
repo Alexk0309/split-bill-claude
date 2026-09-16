@@ -43,11 +43,11 @@ export default async function ReceiptReviewPage({
 
   const failed = (message: string) => (
     <main className="mx-auto max-w-md px-5 pt-6 pb-16">
-      <h1 className="text-2xl font-bold tracking-tight">That scan did not work</h1>
+      <h1 className="type-title">That scan did not work</h1>
       <div className="mt-4">
         <Banner tone="warn">{message}</Banner>
       </div>
-      <Link href={`/bills/${billId}`} className="btn btn-primary mt-5 w-full">
+      <Link href={`/bills/${billId}`} data-press="button" className="btn btn-primary mt-6 w-full">
         Enter the items by hand
       </Link>
     </main>

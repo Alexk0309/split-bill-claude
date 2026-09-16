@@ -67,7 +67,7 @@ export function ProfileForm({
           placeholder="Aina"
           defaultValue={displayName}
         />
-        <p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="type-footnote mt-1.5" style={{ color: 'var(--text-muted)' }}>
           Shown to guests as the person they are paying.
         </p>
       </div>
@@ -85,7 +85,7 @@ export function ProfileForm({
           placeholder="012-345 6789"
           defaultValue={duitnowMobile}
         />
-        <p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="type-footnote mt-1.5" style={{ color: 'var(--text-muted)' }}>
           The number your bank account is registered to for DuitNow. Guests transfer straight to
           it — the money never passes through this app.
         </p>
@@ -93,7 +93,7 @@ export function ProfileForm({
 
       <div>
         <span className="label">DuitNow QR</span>
-        <p className="mb-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="type-footnote mb-2.5" style={{ color: 'var(--text-muted)' }}>
           We cannot generate this — it comes from your own banking app. Screenshot yours once and
           guests can scan it instead of typing your number.
         </p>
@@ -107,12 +107,13 @@ export function ProfileForm({
               className="h-20 w-20 rounded-lg object-cover"
               style={{ background: 'var(--surface-sunk)' }}
             />
-            <span className="flex-1 text-[14px]" style={{ color: 'var(--text-muted)' }}>
+            <span className="type-subhead flex-1" style={{ color: 'var(--text-muted)' }}>
               {qrPath ? 'Ready to save' : 'Saved'}
             </span>
             <button
               type="button"
-              className="btn btn-ghost tap px-2 text-[14px]"
+              data-press="button"
+              className="btn btn-ghost tap type-subhead px-2"
               onClick={() => {
                 setPreview(null);
                 setQrPath('');
@@ -138,25 +139,36 @@ export function ProfileForm({
         />
         <label
           htmlFor="qr-file"
+          data-press="button"
           className="btn btn-secondary w-full"
-          style={uploading ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+          aria-disabled={uploading}
+          style={uploading ? { opacity: 0.4, pointerEvents: 'none' } : undefined}
         >
-          {uploading ? 'Uploading…' : preview ? 'Replace the QR' : 'Upload a screenshot'}
+          {uploading ? (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              Uploading…
+            </>
+          ) : preview ? (
+            'Replace the QR'
+          ) : (
+            'Upload a screenshot'
+          )}
         </label>
         {uploadError ? (
-          <p className="mt-2 text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">
+          <p className="type-subhead mt-2" style={{ color: 'var(--accent-strong)' }} role="alert">
             {uploadError}
           </p>
         ) : null}
       </div>
 
       {state && !state.ok ? (
-        <p className="text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">
+        <p className="type-subhead" style={{ color: 'var(--accent-strong)' }} role="alert">
           {state.error}
         </p>
       ) : null}
       {state?.ok ? (
-        <p className="text-center text-[14px]" style={{ color: 'var(--good)' }} role="status">
+        <p className="type-subhead text-center" style={{ color: 'var(--good)' }} role="status">
           Saved
         </p>
       ) : null}

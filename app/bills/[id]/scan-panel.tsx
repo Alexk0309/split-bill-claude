@@ -78,8 +78,8 @@ export function ScanPanel({
 
   return (
     <section className="card p-4">
-      <h2 className="text-[15px] font-semibold">Scan the receipt</h2>
-      <p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+      <h2 className="type-headline">Scan the receipt</h2>
+      <p className="type-footnote mt-1" style={{ color: 'var(--text-muted)' }}>
         Photograph it and we will read the items off. You get to check them before anything is
         shared.
       </p>
@@ -100,11 +100,19 @@ export function ScanPanel({
       />
       <label
         htmlFor="receipt-photo"
-        className="btn btn-secondary mt-3 w-full"
+        data-press="button"
+        className="btn btn-secondary mt-3.5 w-full"
         aria-disabled={busy || exhausted}
-        style={busy || exhausted ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+        style={busy || exhausted ? { opacity: 0.4, pointerEvents: 'none' } : undefined}
       >
-        {busy ? STAGE_LABEL[stage] : 'Take a photo'}
+        {busy ? (
+          <>
+            <span className="spinner" aria-hidden="true" />
+            {STAGE_LABEL[stage]}
+          </>
+        ) : (
+          'Take a photo'
+        )}
       </label>
 
       <UsageMeter
@@ -115,7 +123,7 @@ export function ScanPanel({
       />
 
       {error ? (
-        <p className="mt-3 text-[14px]" style={{ color: 'var(--accent-strong)' }} role="alert">
+        <p className="type-subhead mt-3" style={{ color: 'var(--accent-strong)' }} role="alert">
           {error}
         </p>
       ) : null}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Split bill">
+  <!--
+    The app mark. Every page load was asking for a favicon and getting a 404,
+    which is the browser's way of showing an app that was never finished.
+
+    One thing split cleanly in two. Nothing smaller works: at sixteen pixels a
+    receipt with lines on it is a grey smudge, and a glyph that survives that
+    size has to be one shape and one cut.
+  -->
+  <rect width="64" height="64" rx="15" fill="#d95d05" />
+  <path d="M29 14a18 18 0 0 0 0 36z" fill="#fff" />
+  <path d="M35 14a18 18 0 0 1 0 36z" fill="#fff" opacity="0.72" />
+</svg>

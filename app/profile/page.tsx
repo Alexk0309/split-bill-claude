@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { BackLink } from '@/components/ui';
 import { createClient } from '@/lib/supabase/server';
 
 import { ProfileForm } from './profile-form';
@@ -38,21 +38,15 @@ export default async function ProfilePage() {
 
   return (
     <main className="mx-auto max-w-md px-5 pt-4 pb-16">
-      <Link
-        href="/bills"
-        className="tap inline-flex items-center text-[14px]"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        ← All bills
-      </Link>
+      <BackLink href="/bills">All bills</BackLink>
 
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">How you get paid</h1>
-      <p className="mt-2 text-[15px]" style={{ color: 'var(--text-muted)' }}>
+      <h1 className="type-title mt-2">How you get paid</h1>
+      <p className="type-subhead mt-2" style={{ color: 'var(--text-muted)' }}>
         Guests see these on the settlement screen and transfer straight to your bank. This app
         never holds the money.
       </p>
 
-      <div className="mt-6">
+      <div className="mt-7">
         <ProfileForm
           userId={user.id}
           displayName={(profile?.display_name as string | null) ?? ''}

@@ -73,7 +73,7 @@ export function RemindersPanel({
 
   return (
     <section>
-      <h2 className="mb-2 text-[15px] font-semibold">Nudges</h2>
+      <h2 className="group-label">Nudges</h2>
 
       <form action={setReminders} className="card p-4">
         <input type="hidden" name="billId" value={bill.id} />
@@ -86,9 +86,9 @@ export function RemindersPanel({
             className="h-5 w-5 shrink-0"
             style={{ accentColor: 'var(--accent)' }}
           />
-          <span className="text-[15px] font-medium">Remind me who to nudge</span>
+          <span className="type-callout font-medium">Remind me who to nudge</span>
         </label>
-        <p className="mt-1 mb-3 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="type-footnote mt-1 mb-4" style={{ color: 'var(--text-muted)' }}>
           Nothing is sent automatically. We work out who is due and write the message; you tap
           once to send it from your own WhatsApp.
         </p>
@@ -108,7 +108,7 @@ export function RemindersPanel({
             </option>
           ))}
         </select>
-        <p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="type-footnote mt-1.5" style={{ color: 'var(--text-muted)' }}>
           Three nudges at most, ever. After that we stop asking.
         </p>
 
@@ -123,27 +123,29 @@ export function RemindersPanel({
             <Banner tone="good">Everyone has settled up. Nothing to chase.</Banner>
           </div>
         ) : (
-          <div className="card mt-2 divide-y" style={{ borderColor: 'var(--border)' }}>
+          <div className="list mt-2">
             {chaseable.map(({ person, amountDueSen, status, muted }) => (
               <div key={person.id} className="px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Avatar name={person.display_name} seed={person.id} size={26} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{person.display_name}</span>
-                    <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                    <span className="type-callout block truncate font-medium">
+                      {person.display_name}
+                    </span>
+                    <span className="type-footnote" style={{ color: 'var(--text-muted)' }}>
                       {statusLabel(status, now)}
                     </span>
                   </span>
-                  <Money sen={amountDueSen} className="shrink-0 font-semibold" />
+                  <Money sen={amountDueSen} className="type-headline shrink-0" />
                 </div>
 
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2.5 flex flex-wrap gap-2">
                   {status.kind === 'due' ? (
                     <form action={sendNudge}>
                       <input type="hidden" name="billId" value={bill.id} />
                       <input type="hidden" name="participantId" value={person.id} />
                       <SubmitButton
-                        className="btn btn-primary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        className="btn btn-primary tap type-subhead min-h-0 px-3 py-1.5"
                         pendingLabel="Opening WhatsApp…"
                       >
                         Send on WhatsApp
@@ -156,7 +158,7 @@ export function RemindersPanel({
                       <input type="hidden" name="billId" value={bill.id} />
                       <input type="hidden" name="participantId" value={person.id} />
                       <SubmitButton
-                        className="btn btn-secondary tap min-h-0 px-3 py-1.5 text-[14px]"
+                        className="btn btn-secondary tap type-subhead min-h-0 px-3 py-1.5"
                         pendingLabel="Snoozing…"
                       >
                         Snooze 3 days
@@ -168,7 +170,7 @@ export function RemindersPanel({
                     <input type="hidden" name="billId" value={bill.id} />
                     <input type="hidden" name="participantId" value={person.id} />
                     <input type="hidden" name="muted" value={muted ? 'false' : 'true'} />
-                    <SubmitButton className="btn btn-ghost tap min-h-0 px-2 py-1.5 text-[14px]">
+                    <SubmitButton className="btn btn-ghost tap type-subhead min-h-0 px-2 py-1.5">
                       {muted ? 'Unmute' : 'Never nudge'}
                     </SubmitButton>
                   </form>
